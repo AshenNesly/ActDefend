@@ -66,14 +66,14 @@ public sealed class FeatureExtractorTests
     }
 
     [Fact]
-    public void Extractor_DoubleMaxValueRatio_WhenWritesButNoReads()
+    public void Extractor_ZeroRatio_WhenWritesButNoReads()
     {
         _extractor.ProcessEvent(BuildEvent(300, FileSystemEventType.Write, "C:\\data\\test.txt"));
 
         var results = _extractor.Emit();
 
         results.Should().ContainSingle();
-        results[0].WriteReadRatio.Should().Be(double.MaxValue);
+        results[0].WriteReadRatio.Should().Be(0.0);
     }
     
     [Fact]

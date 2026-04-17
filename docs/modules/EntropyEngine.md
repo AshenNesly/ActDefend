@@ -39,6 +39,12 @@ Only the first readable probe succeeds; the rest are skipped. A `LogTrace` entry
 1. **Passive Access:** `FileShare.ReadWrite | FileShare.Delete` allows passive analysis without blocking the active process.
 2. **Strict Bounds:** Read capped at `64 KB` per file. Maximum `5` files sampled per trigger.
 
+### High-Entropy Format Exclusion (False Positive Mitigation)
+A critical feature in filtering safe high-entropy writes vs actual ransomware payloading. Benign extensions representing heavily compressed data structures (`.dll`, `.exe`, `.pack`, `.zip`, `.png`, `.jpg`, `.cache`) naturally measure at >7.5 Shannon entropy. 
+When sampled directly, they generate massive false positives against background Installers or system extraction mechanisms. 
+- **Methodology:** Stage 2 maintains a strict check against `KnownBenignHighEntropyExtensions`. Matches safely skip the file sample calculation entirely.
+- **Why this does not blind the system:** Rename-based ransomware overwrites extensions (`.locked`, `.crypto`) bypassing the check because `.locked` isn't within the hash set and properly reads the mathematical entropy. Furthermore, standard target targets like `.docx` and `.xlsx` are not excluded, ensuring in-place modification of Office Documents is structurally caught.
+
 ### Cooldown Fuses
 A per-PID cooldown map (default `10 seconds`) prevents Stage 2 from being re-triggered for the same process while it is on cooldown, protecting CPU stability under rapid burst conditions.
 

@@ -33,7 +33,9 @@ All metrics derived from the *Primary Burst Window*:
 | `RenameRatePerSec` | `PrimaryRenames / PrimaryWindowSeconds` |
 | `UniqueFilesWritten` | Count of distinct write-event file paths in primary window |
 | `UniqueDirectoriesTouched` | Count of distinct parent directories from any event type |
-| `WriteReadRatio` | `Writes / Reads`; `double.MaxValue` when reads == 0 and writes > 0 |
+| `WriteReadRatio` | `Writes / Reads` |
+
+*Note on `WriteReadRatio`:* When reads are exactly 0, the ratio evaluates to `0.0`. Pure write-bursts are distinctly characteristic of safe extraction utilities/download streams, and ransomware necessarily requires reading original structure sequentially. Inflating zero-reads removes penalty bounds across innocuous payloads.*
 
 ---
 

@@ -22,6 +22,23 @@ public sealed class EntropySamplingEngine : IEntropyEngine
     // Per-process cooldown tracking: processId → last check time.
     private readonly Dictionary<int, DateTimeOffset> _cooldowns = new();
 
+    // Known binary, media, or compressed asset extensions.
+    // Defensively ignoring these prevents False Positives when benign tools (IDEs, installers, downloaders)
+    // write heavy binary files that naturally exceed the entropy threshold.
+    // Ransomware modifying user documents will still be caught (since we don't exclude .docx, .pdf, etc),
+    // and Simulator/Rename ransomware appending '.locked' will bypass this list and be correctly sampled.
+    private static readonly HashSet<string> KnownBenignHighEntropyExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Core binaries/libraries (Installers/Builders)
+        ".dll", ".exe", ".sys", ".pdb", ".o", ".a", ".so", ".dylib", ".class", ".jar",
+        // Caches and Package formats
+        ".cache", ".pack", ".idx", ".nupkg", ".npm", ".gem",
+        // Media/Assets (Extracting large asset bundles)
+        ".png", ".jpg", ".jpeg", ".mp4", ".mp3", ".pak", ".vpk",
+        // Known compressed archives (purely extracted/downloaded)
+        ".zip", ".tar", ".gz", ".7z", ".rar", ".cab", ".lz4"
+    };
+
     public EntropySamplingEngine(
         ILogger<EntropySamplingEngine> logger,
         IOptions<ActDefendOptions> options)
@@ -130,6 +147,13 @@ public sealed class EntropySamplingEngine : IEntropyEngine
         foreach (var ext in extensionProbes)
         {
             var probeTarget = ext.Length == 0 ? filePath : filePath + ext;
+
+            // Prevent benign compressed/binary files from triggering False Positives.
+            var targetExt = Path.GetExtension(probeTarget);
+            if (KnownBenignHighEntropyExtensions.Contains(targetExt))
+            {
+                continue;
+            }
 
             try
             {

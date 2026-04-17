@@ -129,7 +129,7 @@ public sealed class FeatureExtractor : IFeatureExtractor
             {
                 ratio = primaryReads > 0 
                     ? (double)primaryWrites / primaryReads 
-                    : double.MaxValue;
+                    : 0.0;
             }
 
             snapshots.Add(new FeatureSnapshot

@@ -244,6 +244,52 @@ public sealed class EntropySamplingEngineTests
         }
     }
 
+    /// <summary>
+    /// Confirms that Stage 2 defensively skips sampling extensions like .dll and .zip
+    /// since they are known to be high-entropy and cause False Positives for installers.
+    /// </summary>
+    [Fact]
+    public async Task AnalyseAsync_ExcludesBenignHighEntropyExtensions_ToPreventFalsePositives()
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), $"actdefend-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workspace);
+        try
+        {
+            var dllPath = Path.Combine(workspace, "binary.dll");
+            // High entropy content will be ignored because of extension.
+            var randomBytes = new byte[8192];
+            new Random(123).NextBytes(randomBytes);
+            File.WriteAllBytes(dllPath, randomBytes);
+
+            var engine = new EntropySamplingEngine(
+                NullLogger<EntropySamplingEngine>.Instance,
+                Options.Create(new ActDefendOptions
+                {
+                    Stage2 = new Stage2Options
+                    {
+                        EntropyThreshold     = 7.0,
+                        SampleBytesLimit     = 65536,
+                        MaxFilesToSample     = 5,
+                        ConfirmationMinFiles = 1,
+                        CooldownSeconds      = 1
+                    }
+                }));
+
+            var result = await engine.AnalyseAsync(
+                BuildScoringResult(1001, recentWritten: [dllPath]),
+                CancellationToken.None);
+
+            result.IsConfirmed.Should().BeFalse(
+                "even though the .dll has high entropy, it should be excluded from sampling to prevent false positives");
+            result.Samples.Should().BeEmpty(
+                ".dll is a KnownBenignHighEntropyExtension and should not produce a FileSample");
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
     private static ScoringResult BuildScoringResult(
         int pid,
         List<string> recentWritten,

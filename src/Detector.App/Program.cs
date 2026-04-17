@@ -24,7 +24,6 @@ try
     // The app.manifest already requests requireAdministrator, so Windows
     // typically handles UAC automatically. This check is a runtime guard
     // for edge cases where the process was invoked without ShellExecute.
-    /*
     if (!ActDefend.Core.Elevation.ElevationHelper.IsElevated())
     {
         Log.Warning("Process is not elevated. Attempting UAC relaunch...");
@@ -40,9 +39,9 @@ try
                 "UAC elevation was denied or relaunch failed. " +
                 "ActDefend requires Administrator privileges for ETW monitoring. " +
                 "The application will start but monitoring will be unavailable.");
+            // Continue so the GUI can display the elevation-required message.
         }
     }
-    */
 
     // ── 3. Build generic host ─────────────────────────────────────────────────
     var host = Host.CreateDefaultBuilder(args)

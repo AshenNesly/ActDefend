@@ -32,6 +32,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Images embedded as WPF resource so they resolve at runtime from the assembly -->
+    <Resource Include="Images\shield.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Detector.Core\Detector.Core.csproj" />
   </ItemGroup>
 </Project>

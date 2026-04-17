@@ -1,21 +1,64 @@
-# GUI Module (WPF Dashboard & Tray)
+# GUI Module (`Detector.GUI`)
 
-The `Detector.GUI` project serves as the end-user facing front-end for ActDefend, projecting runtime detection events up from the kernel into human-readable alerts seamlessly.
+**Phase 8 UX revision** — tray icon, severity-aware alert rows, and dashboard improvements.
 
 ## Architecture
 
-To ensure cross-compatibility with strict .NET patterns, ActDefend utilizes an **MVVM (Model-View-ViewModel)** structure replacing legacy explicit event bindings in the underlying Code-Behind `MainWindow.xaml.cs`.
+The GUI layer uses **MVVM** cleanly separated into three files:
 
-### The View Model (`MainWindowViewModel.cs`)
-The VM directly requests injected `IMonitoringStatus` objects to pull active `TotalEventsProcessed` and connection strings without explicitly calling heavy native locks on arbitrary intervals. 
+| File | Role |
+|---|---|
+| `MainWindow.xaml` | View — XAML layout only, no logic |
+| `MainWindow.xaml.cs` | Code-behind — event wiring only (tray notification, close-to-tray) |
+| `MainWindowViewModel.cs` | ViewModel — all data-binding logic |
 
-Instead: It binds to the explicit action `StatusChanged`, generating `OnPropertyChanged` execution paths keeping UI loops absolutely minimal.
+Started and hosted by `WpfHostedService` (in `Detector.App`) on a dedicated STA thread so the generic host controls lifetime.
 
-### Alert Output Handling
-The `Alerts` system receives outputs via `IAlertPublisher.AlertRaised`.
-When malicious files pop Stage 2 Confirmation flags:
-1. `MainWindowViewModel` pushes the JSON entity onto an `ObservableCollection`.
-2. The `ItemsControl` natively bounds inside `MainWindow.xaml` generates a dynamic alert row.
+## Tray Icon
 
-### System Tray Overrides
-Activating `Hardcodet.NotifyIcon.Wpf`, closing the ActDefend monitor screen explicitly terminates standard user bounds (`e.Cancel = true;`) overriding them to `Hide()`. This allows EDR software to naturally slide into a passive Tray-bound background icon. If the machine triggers an internal `AlertRaised` while minimized, the Tray produces native balloon pops mimicking Windows Action Center.
+`shield.ico` is embedded as a WPF `<Resource>` inside `Detector.GUI.csproj` and referenced via a **pack URI**:
+
+```xml
+IconSource="/ActDefend.GUI;component/Images/shield.ico"
+```
+
+This guarantees the icon resource resolves from the assembly at runtime regardless of the working directory. It will be visible in the system tray whenever the application is running.
+
+## Balloon Notifications
+
+When `IAlertPublisher.AlertRaised` fires, `MainWindow.xaml.cs` invokes `TaskbarIcon.ShowBalloonTip` from the UI thread. The balloon title reflects severity:
+
+| Severity | Balloon title |
+|---|---|
+| Critical | ⚠ CRITICAL — Ransomware Detected |
+| High | ⚠ HIGH — Suspicious Activity |
+| Medium | ⚑ MEDIUM — Elevated Activity |
+| Low | ℹ LOW — Suspicious Signal |
+
+Notifications work whether the window is visible or minimized to tray.
+
+## Dashboard Status Panels
+
+The left sidebar shows six live status cards, all bound to `MainWindowViewModel` properties:
+
+| Panel | Property | Notes |
+|---|---|---|
+| ELEVATION | `ElevationText` / `ElevationBrush` | Green = Admin, Red = not elevated |
+| COLLECTOR | `CollectorText` / `CollectorBrush` | Green = running, Red = stopped |
+| EVENTS PROCESSED | `EventsProcessed` | Formatted with thousands separator |
+| TRACKED PROCESSES | `TrackedProcesses` | Active ETW-tracked process count |
+| EVENTS DROPPED | `EventsDropped` / `DroppedBrush` | Amber when non-zero (backpressure signal) |
+| UPTIME | `UptimeText` | Derived from `IMonitoringStatus.StartedAt` |
+
+## Alert Feed
+
+Each alert row is wrapped in `AlertRowViewModel` which exposes:
+- `SeverityBrush` — colour-coded left border (red/amber/grey)
+- `SeverityLabel` — pill badge (CRITICAL / HIGH / MEDIUM / LOW)
+- `ProcessName`, `PidText`, `Summary`, `TimestampText`
+
+Alerts are prepended (newest first) and the list is capped at 100 entries.
+
+## Close-to-Tray Behaviour
+
+`OnClosing` is cancelled (`e.Cancel = true`) and the window is hidden. A balloon tip confirms monitoring continues in background. Double-clicking the tray icon restores the window.

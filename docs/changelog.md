@@ -1,8 +1,16 @@
 # Changelog
 
-This project tracks deliverables mapped iteratively across the implementation block safely protecting architectural boundaries linearly.
+This project tracks deliverables mapped iteratively across the implementation block.
 
-### Phase 8 - Evaluation Readiness & Hardening (Current)
+### Phase 8b - UX / Tray Refinement (Current)
+- **Tray Icon:** Generated `shield.ico` and embedded it as a WPF `<Resource>` in `Detector.GUI.csproj`. Resolved via pack URI — no missing-resource crash on launch.
+- **Balloon Notifications:** Severity-aware titles (CRITICAL / HIGH / MEDIUM / LOW) with process name and PID in each balloon tip.
+- **Dashboard:** Added EVENTS DROPPED panel (amber when non-zero), UPTIME panel, alert count label, and status bar that reflects live collector state. Alert rows now show a colour-coded severity pill badge and formatted timestamps.
+- **AlertRowViewModel:** Introduced a thin wrapper around `DetectionAlert` for cleaner per-row bindings in XAML.
+- **Elevation Restore:** Reinstated the UAC elevation relaunch that was temporarily commented out for debugging.
+- **Docs:** Updated `docs/modules/GUI.md`.
+
+### Phase 8 - Evaluation Readiness & Hardening
 - **Hardening:** Added `System.ComponentModel.DataAnnotations` validating `ActDefendOptions` at startup ensuring graceful startup crashes cleanly avoiding silent bad metrics safely.
 - **ETW Safety:** Internal updates gracefully handling unexpected heavy processing loop drops directly within `EtwEventCollector` protecting the UI pipeline from zombie state mappings linearly natively.
 - **Docs:** Fully populated all core documentation requirements.

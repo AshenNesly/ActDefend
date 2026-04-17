@@ -27,10 +27,18 @@ public partial class MainWindow : Window
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
+            var title = alert.Severity switch
+            {
+                Core.Models.AlertSeverity.Critical => "⚠ CRITICAL — Ransomware Detected",
+                Core.Models.AlertSeverity.High     => "⚠ HIGH — Suspicious Activity",
+                Core.Models.AlertSeverity.Medium   => "⚑ MEDIUM — Elevated Activity",
+                _                                  => "ℹ LOW — Suspicious Signal"
+            };
+
             TaskbarIcon.ShowBalloonTip(
-                "Ransomware Detected",
-                $"{alert.ProcessName} triggered an anomaly.\n{alert.Summary}",
-                BalloonIcon.Warning);
+                title,
+                $"{alert.ProcessName} (PID {alert.ProcessId})\n{alert.Summary}",
+                Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Warning);
         });
     }
 

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="ActDefend — Ransomware Early Warning"
-        Height="620" Width="900"
+        Height="640" Width="940"
         MinHeight="480" MinWidth="720"
         Background="{StaticResource PrimaryBrush}"
         Foreground="{StaticResource TextBrush}"
@@ -16,9 +16,10 @@
             <RowDefinition Height="28"/>
         </Grid.RowDefinitions>
 
-        <!-- Adding Taskbar wrapper hooking MVVM strictly to avoid background death loops -->
+        <!-- Tray icon — resolves from the embedded Images/shield.ico resource -->
         <tb:TaskbarIcon x:Name="TaskbarIcon"
-                        ToolTipText="ActDefend Ransomware Monitor"
+                        IconSource="/ActDefend.GUI;component/Images/shield.ico"
+                        ToolTipText="ActDefend — Ransomware Monitor"
                         TrayMouseDoubleClick="TaskbarIcon_TrayMouseDoubleClick" />
 
         <!-- Title bar -->
@@ -33,66 +34,119 @@
         <!-- Main content -->
         <Grid Grid.Row="1" Margin="16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="230"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Status panels bound strictly to ViewModel Properties -->
+            <!-- Status sidebar -->
             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                 <TextBlock Text="SYSTEM STATUS" FontSize="11" FontWeight="Bold" Foreground="#666" Margin="0,0,0,8"/>
 
                 <Border CornerRadius="6" Padding="12" Margin="0,0,0,8" Background="{StaticResource SurfaceBrush}">
                     <StackPanel>
                         <TextBlock Text="ELEVATION" FontSize="10" Foreground="#888"/>
-                        <TextBlock Text="{Binding ElevationText}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource SafeBrush}"/>
+                        <TextBlock Text="{Binding ElevationText}" FontSize="14" FontWeight="Bold"
+                                   Foreground="{Binding ElevationBrush}"/>
                     </StackPanel>
                 </Border>
 
                 <Border CornerRadius="6" Padding="12" Margin="0,0,0,8" Background="{StaticResource SurfaceBrush}">
                     <StackPanel>
                         <TextBlock Text="COLLECTOR" FontSize="10" Foreground="#888"/>
-                        <TextBlock Text="{Binding CollectorText}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource SafeBrush}"/>
+                        <TextBlock Text="{Binding CollectorText}" FontSize="14" FontWeight="Bold"
+                                   Foreground="{Binding CollectorBrush}"/>
                     </StackPanel>
                 </Border>
 
                 <Border CornerRadius="6" Padding="12" Margin="0,0,0,8" Background="{StaticResource SurfaceBrush}">
                     <StackPanel>
                         <TextBlock Text="EVENTS PROCESSED" FontSize="10" Foreground="#888"/>
-                        <TextBlock Text="{Binding EventsProcessed}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+                        <TextBlock Text="{Binding EventsProcessed}" FontSize="14" FontWeight="Bold"
+                                   Foreground="{StaticResource TextBrush}"/>
                     </StackPanel>
                 </Border>
 
                 <Border CornerRadius="6" Padding="12" Margin="0,0,0,8" Background="{StaticResource SurfaceBrush}">
                     <StackPanel>
                         <TextBlock Text="TRACKED PROCESSES" FontSize="10" Foreground="#888"/>
-                        <TextBlock Text="{Binding TrackedProcesses}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+                        <TextBlock Text="{Binding TrackedProcesses}" FontSize="14" FontWeight="Bold"
+                                   Foreground="{StaticResource TextBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border CornerRadius="6" Padding="12" Margin="0,0,0,8" Background="{StaticResource SurfaceBrush}">
+                    <StackPanel>
+                        <TextBlock Text="EVENTS DROPPED" FontSize="10" Foreground="#888"/>
+                        <TextBlock Text="{Binding EventsDropped}" FontSize="14" FontWeight="Bold"
+                                   Foreground="{Binding DroppedBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border CornerRadius="6" Padding="12" Margin="0,0,0,8" Background="{StaticResource SurfaceBrush}">
+                    <StackPanel>
+                        <TextBlock Text="UPTIME" FontSize="10" Foreground="#888"/>
+                        <TextBlock Text="{Binding UptimeText}" FontSize="13" FontWeight="Bold"
+                                   Foreground="{StaticResource TextBrush}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
 
-            <!-- Active Alerts Data Grid -->
+            <!-- Alert feed -->
             <Border Grid.Column="1" CornerRadius="6" Background="{StaticResource SurfaceBrush}" Padding="16">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    
-                    <TextBlock Grid.Row="0" Text="RECENT ALERTS" FontSize="11" FontWeight="Bold" Foreground="#666" Margin="0,0,0,12"/>
 
-                    <ListView Grid.Row="1" ItemsSource="{Binding RecentAlerts}" 
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="RECENT ALERTS" FontSize="11" FontWeight="Bold"
+                                   Foreground="#666" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding AlertCountText}" FontSize="11"
+                                   Foreground="#555" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <ListView Grid.Row="1" ItemsSource="{Binding RecentAlerts}"
                               Background="Transparent" BorderThickness="0"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="#1e1e1e" CornerRadius="4" Padding="10" Margin="0,0,0,8" BorderBrush="{StaticResource DangerBrush}" BorderThickness="1,0,0,0">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                            <TextBlock Text="{Binding ProcessName}" FontWeight="Bold" Foreground="{StaticResource DangerBrush}" Margin="0,0,10,0"/>
-                                            <TextBlock Text="{Binding Timestamp, StringFormat='{} {0:HH:mm:ss}'}" Foreground="#888"/>
+                                <Border Background="#1a1a2e" CornerRadius="4" Padding="10,8"
+                                        Margin="0,0,0,6"
+                                        BorderBrush="{Binding SeverityBrush}" BorderThickness="3,0,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <Border Background="{Binding SeverityBrush}" CornerRadius="2"
+                                                        Padding="4,1" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding SeverityLabel}" FontWeight="Bold"
+                                                               Foreground="#111" FontSize="9"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding ProcessName}" FontWeight="Bold"
+                                                           Foreground="{StaticResource AccentBrush}" FontSize="13"
+                                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding PidText}" Foreground="#555" FontSize="11"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Summary}" Foreground="{StaticResource TextBrush}"
+                                                       TextWrapping="Wrap" FontSize="12"/>
                                         </StackPanel>
-                                        <TextBlock Text="{Binding Summary}" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,4"/>
-                                    </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding TimestampText}"
+                                                   Foreground="#666" FontSize="11"
+                                                   VerticalAlignment="Top" Margin="12,0,0,0"/>
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -103,7 +157,7 @@
 
         <!-- Status bar -->
         <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" Padding="12,0">
-            <TextBlock Text="Phase 6 — Live UI &amp; Persistence Active." FontSize="11" Foreground="#666" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding StatusBarText}" FontSize="11" Foreground="#666" VerticalAlignment="Center"/>
         </Border>
     </Grid>
 </Window>

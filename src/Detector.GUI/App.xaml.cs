@@ -26,8 +26,7 @@ public partial class App : Application
         base.OnStartup(e);
 
         // Resolve the main window through DI so its dependencies are injected.
-        var status     = _serviceProvider.GetRequiredService<IMonitoringStatus>();
-        var mainWindow = new MainWindow(status);
+        var mainWindow = Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance<MainWindow>(_serviceProvider);
         MainWindow     = mainWindow;
         mainWindow.Show();
     }

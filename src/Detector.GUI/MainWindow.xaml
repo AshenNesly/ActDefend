@@ -10,17 +10,17 @@
         WindowStartupLocation="CenterScreen">
 
     <Grid>
-        <!-- Adding Taskbar wrapper hooking MVVM strictly to avoid background death loops -->
-        <tb:TaskbarIcon x:Name="TaskbarIcon"
-                        IconSource="/Images/shield.ico"
-                        ToolTipText="ActDefend Ransomware Monitor"
-                        TrayMouseDoubleClick="TaskbarIcon_TrayMouseDoubleClick" />
-
         <Grid.RowDefinitions>
             <RowDefinition Height="60"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="28"/>
         </Grid.RowDefinitions>
+
+        <!-- Adding Taskbar wrapper hooking MVVM strictly to avoid background death loops -->
+        <tb:TaskbarIcon x:Name="TaskbarIcon"
+                        IconSource="/Images/shield.ico"
+                        ToolTipText="ActDefend Ransomware Monitor"
+                        TrayMouseDoubleClick="TaskbarIcon_TrayMouseDoubleClick" />
 
         <!-- Title bar -->
         <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" Padding="16,0">

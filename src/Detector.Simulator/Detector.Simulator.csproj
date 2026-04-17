@@ -10,6 +10,11 @@
     <RootNamespace>ActDefend.Simulator</RootNamespace>
     <AssemblyName>ActDefend.Simulator</AssemblyName>
     <OutputType>Exe</OutputType>
+    <!-- Emit a reference assembly (.dll alongside the .exe) so
+         Detector.UnitTests can import simulator types without
+         needing a separate library project. -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>

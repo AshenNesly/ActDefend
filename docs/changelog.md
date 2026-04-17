@@ -2,6 +2,13 @@
 
 This project tracks deliverables mapped iteratively across the implementation block.
 
+### Phase 8c - Simulator Rerun Fix
+- **Bug Fixed:** `File.Move → IOException` crash on repeated ransomware workload runs caused by stale `.locked` files from previous runs.
+- **Fix:** `SimulatorRunner.ResetWorkspace()` now clears all files/subdirs inside the workspace before every run. The workspace root is preserved; only its contents are removed.
+- **Refactor:** Core simulator logic extracted to `SimulatorRunner` (static, no console I/O) for testability. `Program.cs` is now a thin CLI shell.
+- **Tests:** 17 new unit tests in `SimulatorRunnerTests` covering safety checks, reset behavior, repeated runs (5×), post-run state, and directory spread. Total test count: 39 (all pass).
+- **Docs:** `docs/modules/Simulator.md` fully rewritten.
+
 ### Phase 8b - UX / Tray Refinement (Current)
 - **Tray Icon:** Generated `shield.ico` and embedded it as a WPF `<Resource>` in `Detector.GUI.csproj`. Resolved via pack URI — no missing-resource crash on launch.
 - **Balloon Notifications:** Severity-aware titles (CRITICAL / HIGH / MEDIUM / LOW) with process name and PID in each balloon tip.

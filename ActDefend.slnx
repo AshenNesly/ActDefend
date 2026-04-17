@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Detector.App/Detector.App.csproj" />
+    <Project Path="src/Detector.Collector/Detector.Collector.csproj" />
+    <Project Path="src/Detector.Core/Detector.Core.csproj" />
+    <Project Path="src/Detector.Detection/Detector.Detection.csproj" />
+    <Project Path="src/Detector.Entropy/Detector.Entropy.csproj" />
+    <Project Path="src/Detector.Features/Detector.Features.csproj" />
+    <Project Path="src/Detector.GUI/Detector.GUI.csproj" />
+    <Project Path="src/Detector.Logging/Detector.Logging.csproj" />
+    <Project Path="src/Detector.Simulator/Detector.Simulator.csproj" />
+    <Project Path="src/Detector.Storage/Detector.Storage.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Detector.IntegrationTests/Detector.IntegrationTests.csproj" />
+    <Project Path="tests/Detector.UnitTests/Detector.UnitTests.csproj" />
+  </Folder>
+</Solution>

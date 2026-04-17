@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Detector.Simulator — safe, controlled ransomware-like file-activity simulator.
+    Used ONLY for evaluation and testing.
+    Confined to an explicitly chosen workspace directory.
+    Contains no persistence, no stealth, no networking, no self-propagation.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>ActDefend.Simulator</RootNamespace>
+    <AssemblyName>ActDefend.Simulator</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Detector.Core\Detector.Core.csproj" />
+    <ProjectReference Include="..\Detector.Logging\Detector.Logging.csproj" />
+  </ItemGroup>
+</Project>

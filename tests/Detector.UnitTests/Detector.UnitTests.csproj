@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Detector.UnitTests — unit tests for Core, Features, Detection, Entropy logic.
+    Uses xUnit + FluentAssertions + Moq.
+    Does NOT require elevation or ETW. Runs in plain CI.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>ActDefend.UnitTests</RootNamespace>
+    <AssemblyName>ActDefend.UnitTests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Detector.Core\Detector.Core.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Features\Detector.Features.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Detection\Detector.Detection.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Entropy\Detector.Entropy.csproj" />
+  </ItemGroup>
+</Project>

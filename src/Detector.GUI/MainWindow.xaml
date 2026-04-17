@@ -1,0 +1,105 @@
+<Window x:Class="ActDefend.GUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ActDefend — Ransomware Early Warning"
+        Height="620" Width="900"
+        MinHeight="480" MinWidth="720"
+        Background="{StaticResource PrimaryBrush}"
+        Foreground="{StaticResource TextBrush}"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60"/>   <!-- Title bar -->
+            <RowDefinition Height="*"/>    <!-- Content -->
+            <RowDefinition Height="28"/>   <!-- Status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Title bar ──────────────────────────────────────────── -->
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" Padding="16,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="⛨" FontSize="22" Margin="0,0,10,0"
+                           Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text="ActDefend" FontSize="18" FontWeight="Bold"
+                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text=" — Ransomware Early Warning System"
+                           FontSize="13" Foreground="#888" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Main content ───────────────────────────────────────── -->
+        <Grid Grid.Row="1" Margin="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left panel: status indicators -->
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+
+                <TextBlock Text="SYSTEM STATUS" FontSize="11" FontWeight="Bold"
+                           Foreground="#666" Margin="0,0,0,8"/>
+
+                <!-- Elevation status -->
+                <Border Name="ElevationCard" CornerRadius="6" Padding="12" Margin="0,0,0,8"
+                        Background="{StaticResource SurfaceBrush}">
+                    <StackPanel>
+                        <TextBlock Text="ELEVATION" FontSize="10" Foreground="#888"/>
+                        <TextBlock Name="ElevationStatus" Text="Checking…"
+                                   FontSize="14" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Collector status -->
+                <Border CornerRadius="6" Padding="12" Margin="0,0,0,8"
+                        Background="{StaticResource SurfaceBrush}">
+                    <StackPanel>
+                        <TextBlock Text="COLLECTOR" FontSize="10" Foreground="#888"/>
+                        <TextBlock Name="CollectorStatus" Text="Stopped"
+                                   FontSize="14" FontWeight="Bold" Foreground="{StaticResource DangerBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Events processed -->
+                <Border CornerRadius="6" Padding="12" Margin="0,0,0,8"
+                        Background="{StaticResource SurfaceBrush}">
+                    <StackPanel>
+                        <TextBlock Text="EVENTS PROCESSED" FontSize="10" Foreground="#888"/>
+                        <TextBlock Name="EventsProcessed" Text="0"
+                                   FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Active processes -->
+                <Border CornerRadius="6" Padding="12" Margin="0,0,0,8"
+                        Background="{StaticResource SurfaceBrush}">
+                    <StackPanel>
+                        <TextBlock Text="TRACKED PROCESSES" FontSize="10" Foreground="#888"/>
+                        <TextBlock Name="TrackedProcesses" Text="0"
+                                   FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Right panel: alerts placeholder -->
+            <Border Grid.Column="1" CornerRadius="6" Background="{StaticResource SurfaceBrush}" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="RECENT ALERTS" FontSize="11" FontWeight="Bold"
+                               Foreground="#666" Margin="0,0,0,12"/>
+                    <TextBlock Name="AlertsPlaceholder"
+                               Text="No alerts recorded. Monitoring is active when the collector is running."
+                               Foreground="#555" TextWrapping="Wrap"/>
+                    <!-- Phase 6: replace with an ItemsControl bound to the alert list -->
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ── Status bar ─────────────────────────────────────────── -->
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" Padding="12,0">
+            <TextBlock Name="StatusBarText"
+                       Text="Phase 1 — Foundation build. Monitoring pipeline ready."
+                       FontSize="11" Foreground="#666" VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</Window>

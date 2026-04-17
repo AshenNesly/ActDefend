@@ -1,0 +1,35 @@
+<Project>
+  <!--
+    Directory.Build.props — applied to every project in the solution.
+    Sets common TFM, nullable, warnings-as-errors, and language version.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <!-- Informational warnings that should not block CI -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <Authors>ActDefend Project</Authors>
+    <Company>ActDefend</Company>
+    <Product>ActDefend – Lightweight Behavioural Ransomware Detector</Product>
+    <Copyright>Copyright © 2026 ActDefend Project</Copyright>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.1.0</Version>
+    <!-- Reproducible builds -->
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DefineConstants>RELEASE;TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+</Project>

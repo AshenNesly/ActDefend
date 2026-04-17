@@ -2,7 +2,36 @@
 
 This project tracks deliverables mapped iteratively across the implementation block.
 
+### Phase 8d — Runtime Diagnostic & Detection Fix (Current)
+
+**Problem:** Simulator workloads did not trigger detection alerts even under heavy load. Dashboard counters (Events Processed, Tracked Processes, Events Dropped, Uptime) displayed 0 while alerts were appearing from other processes.
+
+**Root Causes Identified & Fixed:**
+
+#### RC1 — CRITICAL: Stage 2 always failed for the simulator (primary detection failure)
+- **Cause:** `EntropySamplingEngine.AnalyseAsync()` only sampled paths from `RecentWrittenFiles`. The simulator writes high-entropy bytes to `document_N.txt` then immediately renames it to `document_N.txt.locked`. By the time the orchestration tick fired (~2 s), the original paths no longer existed. `TrySampleFile` silently failed on all candidates and returned `IsConfirmed = false`.
+- **Fix:** `AnalyseAsync` now merges both `RecentWrittenFiles` and the new `RecentRenamedSourceFiles` lists before sampling. `TrySampleFile` probes 5 common ransomware extensions (`.locked`, `.encrypted`, `.enc`, `.crypto`, `.crypted`) when the original path is not readable. A `LogTrace` entry records which renamed variant was found.
+
+#### RC2 — STRUCTURAL: Feature Extractor had no rename-source tracking and a too-small write queue
+- **Cause:** `RecentWrittenFiles` was capped at 5 entries (naive queue). Rename events were not tracked as Stage 2 candidates at all.
+- **Fix:** Write queue widened to 20 entries. New `RecentRenamedSourceFiles` queue (bounded to 20) populated from Rename events in `Emit()`. Both fields added to `FeatureSnapshot`.
+
+#### RC3 — UI: Live counters permanently displayed 0
+- **Cause:** `MonitoringStatusService.SetActiveProcessCount()` never called `RaiseChanged()`, so `StatusChanged` never fired for counter changes. `MainWindowViewModel` only re-read values on `StatusChanged`, leaving all live counters stale after startup.
+- **Fix:** `SetActiveProcessCount()` now calls `RaiseChanged()` (fires every ~2 s via orchestration tick). `MainWindowViewModel` adds a `DispatcherTimer` (3 s interval) that explicitly raises `PropertyChanged` for `EventsProcessed`, `EventsDropped`, `UptimeText`, and `StatusBarText`.
+
+#### RC4 — Minor: Events Dropped always displayed 0
+- **Cause:** `PipelineHostService` logged but never propagated the collector's drop count to `MonitoringStatusService`. The `IncrementEventsDropped()` method was never called.
+- **Fix:** Orchestration tick now computes the delta between the collector's cumulative drop count and the last reported drop count, and calls `IncrementEventsDropped()` for the difference.
+
+**Tests:** 5 new unit tests covering: (a) Stage 2 confirms via `.locked` extension probe, (b) candidate list deduplication, (c) low-entropy renamed file correctly rejected, (d) `RecentRenamedSourceFiles` populated from rename events, (e) write queue bounded at ≤ 20. Total test count: 41 (all pass, 0 warnings).
+
+**Docs updated:** `docs/modules/EntropyEngine.md`, `docs/modules/FeatureExtractor.md`, `docs/modules/GUI.md`, `docs/technical-design.md`, `docs/changelog.md`.
+
+---
+
 ### Phase 8c - Simulator Rerun Fix
+
 - **Bug Fixed:** `File.Move → IOException` crash on repeated ransomware workload runs caused by stale `.locked` files from previous runs.
 - **Fix:** `SimulatorRunner.ResetWorkspace()` now clears all files/subdirs inside the workspace before every run. The workspace root is preserved; only its contents are removed.
 - **Refactor:** Core simulator logic extracted to `SimulatorRunner` (static, no console I/O) for testability. `Program.cs` is now a thin CLI shell.

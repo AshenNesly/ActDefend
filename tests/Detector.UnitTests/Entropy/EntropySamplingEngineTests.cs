@@ -78,21 +78,184 @@ public sealed class EntropySamplingEngineTests
     [Fact]
     public async Task AnalyseAsync_BypassesIfNoFilesAvailable()
     {
-        var result = await _engine.AnalyseAsync(BuildScoringResult(100, []), CancellationToken.None);
+        var result = await _engine.AnalyseAsync(BuildScoringResult(100, [], []), CancellationToken.None);
         
         result.IsConfirmed.Should().BeFalse();
         result.Explanation.Should().Contain("No valid file targets available");
     }
 
-    private static ScoringResult BuildScoringResult(int pid, List<string> recentFiles)
+    // ── New tests validating the renamed-file fix (root cause of simulator detection failure) ──
+
+    /// <summary>
+    /// Validates that Stage 2 successfully samples a high-entropy file that has been renamed
+    /// to the .locked extension — simulating the exact ransomware write-then-rename pattern.
+    /// This test reproduces the root cause: the original file path no longer exists; the
+    /// entropy engine must probe the .locked variant to confirm detection.
+    /// </summary>
+    [Fact]
+    public async Task AnalyseAsync_Confirms_WhenOriginalFileRenamedToLocked()
+    {
+        // Arrange: write high-entropy content to a .locked file as the simulator does.
+        var workspace = Path.Combine(Path.GetTempPath(), $"actdefend-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workspace);
+        try
+        {
+            var originalPath = Path.Combine(workspace, "document_0.txt");
+            var renamedPath  = originalPath + ".locked";
+
+            // Write high-entropy (random) bytes directly to the renamed path.
+            var randomBytes = new byte[8192];
+            new Random(42).NextBytes(randomBytes);
+            File.WriteAllBytes(renamedPath, randomBytes);
+
+            // The ORIGINAL path does NOT exist (it was renamed away).
+            File.Exists(originalPath).Should().BeFalse();
+
+            // Act: Stage 2 receives the ORIGINAL path in recentWrittenFiles; the renamed path in
+            // recentRenamedSourceFiles. It must discover the .locked file and confirm.
+            var engine = new EntropySamplingEngine(
+                NullLogger<EntropySamplingEngine>.Instance,
+                Options.Create(new ActDefendOptions
+                {
+                    Stage2 = new Stage2Options
+                    {
+                        EntropyThreshold     = 7.2,
+                        SampleBytesLimit     = 65536,
+                        MaxFilesToSample     = 5,
+                        ConfirmationMinFiles = 1,   // 1 high-entropy file is enough for this test
+                        CooldownSeconds      = 1
+                    }
+                }));
+
+            var result = await engine.AnalyseAsync(
+                BuildScoringResult(777,
+                    recentWritten:  [originalPath],    // original path — does NOT exist
+                    recentRenamed:  [originalPath]),    // rename source — also original path; engine probes .locked
+                CancellationToken.None);
+
+            // Assert: Stage 2 should have found and sampled the .locked file.
+            result.IsConfirmed.Should().BeTrue(
+                "Stage 2 must discover the renamed .locked file via extension probing");
+            result.AverageEntropy.Should().BeGreaterThan(7.5,
+                "random bytes have near-maximum entropy");
+            result.HighEntropyFileCount.Should().Be(1);
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Validates that Stage 2 correctly merges RecentWrittenFiles and RecentRenamedSourceFiles,
+    /// deduplicates paths, and does not double-count a file that appears in both lists.
+    /// </summary>
+    [Fact]
+    public async Task AnalyseAsync_MergesCandidateLists_WithoutDuplication()
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), $"actdefend-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workspace);
+        try
+        {
+            var lockedPath = Path.Combine(workspace, "doc.txt.locked");
+            var randomBytes = new byte[4096];
+            new Random(99).NextBytes(randomBytes);
+            File.WriteAllBytes(lockedPath, randomBytes);
+
+            // Both lists point to the same original path "doc.txt" (which doesn't exist).
+            var originalPath = Path.Combine(workspace, "doc.txt");
+
+            var engine = new EntropySamplingEngine(
+                NullLogger<EntropySamplingEngine>.Instance,
+                Options.Create(new ActDefendOptions
+                {
+                    Stage2 = new Stage2Options
+                    {
+                        EntropyThreshold     = 7.0,
+                        SampleBytesLimit     = 65536,
+                        MaxFilesToSample     = 10,
+                        ConfirmationMinFiles = 1,
+                        CooldownSeconds      = 1
+                    }
+                }));
+
+            var result = await engine.AnalyseAsync(
+                // Same path in both lists — deduplication must prevent double-sampling.
+                BuildScoringResult(888,
+                    recentWritten:  [originalPath],
+                    recentRenamed:  [originalPath]),
+                CancellationToken.None);
+
+            // Should sample exactly once (the .locked variant found once).
+            result.Samples.Should().HaveCount(1, "duplicate path should be deduplicated before sampling");
+            result.IsConfirmed.Should().BeTrue();
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Confirms Stage 2 does NOT confirm when the renamed .locked file also has LOW entropy
+    /// (e.g. benign rename — shouldn't be triggered as alarm).
+    /// </summary>
+    [Fact]
+    public async Task AnalyseAsync_DoesNotConfirm_WhenLockedFileHasLowEntropy()
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), $"actdefend-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workspace);
+        try
+        {
+            var lockedPath = Path.Combine(workspace, "benign.txt.locked");
+            // Write low-entropy content (all zeros).
+            File.WriteAllBytes(lockedPath, new byte[4096]);
+
+            var originalPath = Path.Combine(workspace, "benign.txt");
+
+            var engine = new EntropySamplingEngine(
+                NullLogger<EntropySamplingEngine>.Instance,
+                Options.Create(new ActDefendOptions
+                {
+                    Stage2 = new Stage2Options
+                    {
+                        EntropyThreshold     = 7.2,
+                        SampleBytesLimit     = 65536,
+                        MaxFilesToSample     = 5,
+                        ConfirmationMinFiles = 1,
+                        CooldownSeconds      = 1
+                    }
+                }));
+
+            var result = await engine.AnalyseAsync(
+                BuildScoringResult(999,
+                    recentWritten:  [originalPath],
+                    recentRenamed:  [originalPath]),
+                CancellationToken.None);
+
+            result.IsConfirmed.Should().BeFalse(
+                "low-entropy content must not confirm even if found via extension probe");
+            result.AverageEntropy.Should().BeLessThan(1.0,
+                "all-zero file has entropy near 0");
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    private static ScoringResult BuildScoringResult(
+        int pid,
+        List<string> recentWritten,
+        List<string>? recentRenamed = null)
     {
         var snapshot = new FeatureSnapshot
         {
             Timestamp = DateTimeOffset.UtcNow,
             ProcessId = pid,
             ProcessName = "test.exe",
-            RecentWrittenFiles = recentFiles,
-            // Arbitrary values
+            RecentWrittenFiles = recentWritten,
+            RecentRenamedSourceFiles = recentRenamed ?? [],
             PrimaryWindowDuration = TimeSpan.FromSeconds(5),
             ContextWindowDuration = TimeSpan.FromSeconds(15)
         };
@@ -107,3 +270,4 @@ public sealed class EntropySamplingEngineTests
         };
     }
 }
+

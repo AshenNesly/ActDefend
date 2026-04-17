@@ -56,6 +56,17 @@ public sealed record FeatureSnapshot
     /// <summary>Duration of the context window this snapshot covers.</summary>
     public TimeSpan ContextWindowDuration { get; init; }
 
-    /// <summary>Most recently seen file paths (bounded, for Stage 2 sampling candidates).</summary>
+    /// <summary>
+    /// Most recently written file paths (bounded, for Stage 2 entropy sampling candidates).
+    /// Contains the original write-event paths — may have been renamed away.
+    /// Stage 2 will also try common ransomware extensions if the path is no longer readable.
+    /// </summary>
     public IReadOnlyList<string> RecentWrittenFiles { get; init; } = [];
+
+    /// <summary>
+    /// Source paths of the most recent rename events (bounded).
+    /// In ransomware patterns, these are the original file names before extension substitution.
+    /// Stage 2 uses these paths (with extension probing) as additional entropy candidates.
+    /// </summary>
+    public IReadOnlyList<string> RecentRenamedSourceFiles { get; init; } = [];
 }

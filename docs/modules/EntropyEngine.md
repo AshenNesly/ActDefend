@@ -1,24 +1,70 @@
 # Stage 2 Confirmation Engine (Entropy)
 
-The `Detector.Entropy` project acts as the definitive ransomware discriminator in the system architecture. It triggers *only* when the `Detector.Detection` Stage 1 engine flags a process as anomalous, saving CPU and Disk I/O across the enterprise.
+The `Detector.Entropy` project acts as the definitive ransomware discriminator in the system architecture. It triggers *only* when the `Detector.Detection` Stage 1 engine flags a process as anomalous, saving CPU and Disk I/O continuously.
 
 ## Core Concepts
 
 ### Shannon Entropy Mathematics
-Ransomware actively encrypts user data, destroying language structure and injecting pure mathematical randomness. The confirmation engine calculates Shannon entropy.
-`H = -Σ p(b) * log2(p(b))`
-A perfectly compressed or encrypted byte array sits near `8.0`. Standard plaintext sits lower (around `4.0-5.0`). ActDefend considers anything over `EntropyThreshold` (default `7.2`) to be highly suspicious.
+Ransomware actively encrypts user data, destroying language structure and injecting pure mathematical randomness. The confirmation engine calculates Shannon entropy:
+
+```
+H = -Σ p(b) * log2(p(b))
+```
+
+A perfectly compressed or encrypted byte array sits near `8.0`. Standard plaintext sits lower (around `4.0–5.0`). ActDefend considers anything over `EntropyThreshold` (default `7.2`) to be highly suspicious.
+
+### Candidate File Discovery — Rename-Aware Probing (Phase 8 Fix)
+
+**Root cause fixed:** The original implementation only sampled files from `RecentWrittenFiles`. Real ransomware (and the simulator) follows a write-then-rename pattern: a file is written with high-entropy bytes, then immediately renamed to a ransomware extension (`.locked`, `.encrypted`, etc.). By the time Stage 2 ran, the original paths no longer existed, so `TrySampleFile` failed silently for all candidates and always returned `IsConfirmed = false`.
+
+**Fix:** `AnalyseAsync` now merges two candidate lists before sampling:
+
+1. `RecentWrittenFiles` — paths of files with recent write events (may have been renamed away)
+2. `RecentRenamedSourceFiles` — source paths from recent rename events (original name before extension substitution)
+
+Both lists are deduplicated before sampling. If a candidate path does not exist, `TrySampleFile` probes six known ransomware extensions appended to the original path:
+
+| Probe | Cover |
+|---|---|
+| `""` (original) | file still in place |
+| `.locked`        | simulator + common ransomware |
+| `.encrypted`     | common ransomware |
+| `.enc`           | common ransomware |
+| `.crypto`        | common ransomware |
+| `.crypted`       | common ransomware |
+
+Only the first readable probe succeeds; the rest are skipped. A `LogTrace` entry is emitted when a renamed variant is successfully found.
 
 ### Safe Live I/O Bounds
-A major risk for EDR solutions is blocking the user's system by aggressively scanning files or crashing when ransomware locks target payloads sequentially.
-1. **Passive Access Restrictions:** `EntropySamplingEngine` executes `FileShare.ReadWrite | FileShare.Delete` allowing it to passively analyze files without throwing Windows sharing violation locks against the active malware (preventing detection evasion).
-2. **Strict Bounds:** It will NEVER read a full file. It strictly cuts off buffer loads at `64KB` max (`SampleBytesLimit`). It only targets a maximum of `5` newly written files per process run (`MaxFilesToSample`).
+1. **Passive Access:** `FileShare.ReadWrite | FileShare.Delete` allows passive analysis without blocking the active process.
+2. **Strict Bounds:** Read capped at `64 KB` per file. Maximum `5` files sampled per trigger.
 
-### Cooldown Fuses 
-A common failure in lightweight scanners is the "Cascade Loop"—a ransomware hitting 500 files a second triggers 500 Stage 2 scans instantly, burning CPU to 100%.
-The Entropy Engine tracks a strict localized Cooldown integer map per Process. Defaulting to `10 seconds`, if a PID fails confirmation, it is entirely ignored by Stage 2 for the rest of that window regardless of how many Stage 1 Suspicion boundaries it crosses, completely protecting machine stability while under attack. 
+### Cooldown Fuses
+A per-PID cooldown map (default `10 seconds`) prevents Stage 2 from being re-triggered for the same process while it is on cooldown, protecting CPU stability under rapid burst conditions.
 
 ## Integration with the Orchestrator
-When the engine confirms mathematically that `ExceedsThreshold` bounds match against the limits (default min 2 files), it generates a true confirmation `EntropyResult`.
 
-The orchestrator then merges the Stage 1 vector mappings (Why it was suspicious) with the Stage 2 Entropy Confirmation (Mathematical proof), emitting a structured JSON alert into the broader application.
+When the engine confirms that `highEntropyCount >= ConfirmationMinFiles` (default `2`), it generates a true `EntropyResult.IsConfirmed = true`. The orchestrator then merges Stage 1 scoring data with Stage 2 confirmation to emit a structured `DetectionAlert`.
+
+If Stage 2 finds no readable files at all (all paths missing and no extension variant found), it returns `IsConfirmed = false` with a diagnostic explanation in the result, logged at `Debug` level.
+
+## Configuration Reference
+
+| Key | Default | Description |
+|---|---|---|
+| `Stage2.EntropyThreshold` | `7.2` | Minimum entropy (bits/byte) to flag a file as high-entropy |
+| `Stage2.SampleBytesLimit` | `65536` | Max bytes read per file sample |
+| `Stage2.MaxFilesToSample` | `5` | Max candidate files sampled per Stage 2 trigger |
+| `Stage2.ConfirmationMinFiles` | `2` | Min high-entropy files required for confirmation |
+| `Stage2.CooldownSeconds` | `10` | Per-process Stage 2 re-trigger cooldown |
+
+## Testing
+
+Unit tests in `tests/Detector.UnitTests/Entropy/EntropySamplingEngineTests.cs` cover:
+
+- Shannon entropy calculation correctness (zero, uniform, random data)
+- Cooldown tracking
+- Empty candidate list bypass
+- **Stage 2 confirms when original file is renamed to `.locked`** (root cause regression test)
+- **Deduplication of merged candidate lists**
+- **Non-confirmation when `.locked` file has low entropy** (false-positive guard)

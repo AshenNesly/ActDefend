@@ -70,7 +70,8 @@ public sealed class FeatureExtractor : IFeatureExtractor
             var primaryUniqueFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var primaryUniqueDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             
-            var recentWrittenFilesQueue = new List<string>(5);
+            var recentWrittenFilesQueue = new List<string>(20);
+            var recentRenamedSourceQueue = new List<string>(20);
 
             foreach (var evt in activeEvents)
             {
@@ -89,10 +90,10 @@ public sealed class FeatureExtractor : IFeatureExtractor
                         primaryUniqueFiles.Add(evt.FilePath);
                         AddUniqueDirSafely(evt.FilePath, primaryUniqueDirs);
                         
-                        // Push to recent queue for sampling (Stage 2)
+                        // Push to recent queue for Stage 2 entropy sampling (bounded to last 20).
                         recentWrittenFilesQueue.Add(evt.FilePath);
-                        if (recentWrittenFilesQueue.Count > 5)
-                            recentWrittenFilesQueue.RemoveAt(0); // Very naive but functional queue maintaining last 5
+                        if (recentWrittenFilesQueue.Count > 20)
+                            recentWrittenFilesQueue.RemoveAt(0);
                     }
                     else if (evt.EventType == FileSystemEventType.Read)
                     {
@@ -104,6 +105,12 @@ public sealed class FeatureExtractor : IFeatureExtractor
                         primaryRenames++;
                         primaryUniqueFiles.Add(evt.FilePath);
                         AddUniqueDirSafely(evt.FilePath, primaryUniqueDirs);
+
+                        // Track rename source paths so Stage 2 can probe for the renamed-to
+                        // version (e.g. document.txt → document.txt.locked).
+                        recentRenamedSourceQueue.Add(evt.FilePath);
+                        if (recentRenamedSourceQueue.Count > 20)
+                            recentRenamedSourceQueue.RemoveAt(0);
                     }
                 }
             }
@@ -143,7 +150,8 @@ public sealed class FeatureExtractor : IFeatureExtractor
 
                 PrimaryWindowDuration = primaryWindow,
                 ContextWindowDuration = contextWindow,
-                RecentWrittenFiles = recentWrittenFilesQueue
+                RecentWrittenFiles = recentWrittenFilesQueue,
+                RecentRenamedSourceFiles = recentRenamedSourceQueue
             });
         }
 

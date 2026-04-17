@@ -44,17 +44,27 @@ public sealed class EntropySamplingEngine : IEntropyEngine
         ScoringResult result,
         CancellationToken cancellationToken)
     {
-        // Record cooldown timestamp for this process.
+        // Record cooldown timestamp for this process before any IO.
         _cooldowns[result.Snapshot.ProcessId] = DateTimeOffset.UtcNow;
 
         var sampleList = new List<FileSample>();
+
+        // Build a merged, deduplicated candidate list from:
+        //   1. Recently WRITTEN file paths (may have been renamed away since the write)
+        //   2. Recently RENAMED source paths (original names before extension substitution)
+        // Combining both gives Stage 2 the widest possible survivor set to probe.
+        // TrySampleFile will also attempt common ransomware extensions when a path is not found.
         var candidates = result.Snapshot.RecentWrittenFiles
+            .Concat(result.Snapshot.RecentRenamedSourceFiles)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(_options.MaxFilesToSample)
             .ToList();
 
         if (candidates.Count == 0)
         {
+            _logger.LogDebug(
+                "Stage 2 — PID={Pid}: no candidate files available for entropy sampling.",
+                result.Snapshot.ProcessId);
             return BuildResult(result, false, sampleList, "No valid file targets available for entropy sampling.");
         }
 
@@ -70,58 +80,99 @@ public sealed class EntropySamplingEngine : IEntropyEngine
 
         if (sampleList.Count == 0)
         {
-            return BuildResult(result, false, sampleList, "Failed to read any assigned targets (possibly locked or deleted).");
+            _logger.LogDebug(
+                "Stage 2 — PID={Pid}: failed to read all {Count} target(s) — may all be renamed or deleted.",
+                result.Snapshot.ProcessId, candidates.Count);
+            return BuildResult(result, false, sampleList,
+                $"Failed to read any of {candidates.Count} sampled target(s) — possibly renamed or deleted.");
         }
 
         var averageEntropy = sampleList.Average(s => s.ShannonEntropy);
         var highEntropyCount = sampleList.Count(s => s.ExceedsThreshold);
-        
+
         var isConfirmed = highEntropyCount >= _options.ConfirmationMinFiles;
 
         var explanation = $"Evaluated {sampleList.Count} files. " +
                           $"High entropy count: {highEntropyCount} (Threshold: {_options.ConfirmationMinFiles}).";
 
         var finalResult = BuildResult(result, isConfirmed, sampleList, explanation);
-        
-        // Use property-based mutation (since it's an init-only property set via BuildResult, need to build it explicitly)
-        return finalResult with 
-        { 
-            AverageEntropy = averageEntropy, 
-            HighEntropyFileCount = highEntropyCount 
+        return finalResult with
+        {
+            AverageEntropy = averageEntropy,
+            HighEntropyFileCount = highEntropyCount
         };
     }
 
+    /// <summary>
+    /// Tries to read and entropy-sample the file at <paramref name="filePath"/>.
+    /// If the path itself cannot be opened (e.g. the file was renamed by ransomware to a new
+    /// extension), probes a set of well-known ransomware extensions appended to the original path.
+    /// This makes Stage 2 robust against the common write-then-rename pattern used by ransomware
+    /// and reproduced by the simulator.
+    /// </summary>
     [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
     private bool TrySampleFile(string filePath, out FileSample sample)
     {
         sample = default!;
-        
-        try
+
+        // Try the original path first, then fall back to renamed versions.
+        // The fallback extension list covers the simulator (.locked) and common real-world patterns.
+        ReadOnlySpan<string> extensionProbes =
+        [
+            "",           // original path as-is
+            ".locked",
+            ".encrypted",
+            ".enc",
+            ".crypto",
+            ".crypted"
+        ];
+
+        foreach (var ext in extensionProbes)
         {
-            // Use maximum permissiveness allowing files still open by the suspected ransomware to be passively analyzed
-            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            
-            var lengthToRead = Math.Min(stream.Length, _options.SampleBytesLimit);
-            if (lengthToRead <= 0)
-                return false;
+            var probeTarget = ext.Length == 0 ? filePath : filePath + ext;
 
-            var buffer = new byte[lengthToRead];
-            var bytesRead = stream.Read(buffer, 0, (int)lengthToRead);
+            try
+            {
+                // Use maximum permissiveness — allow files still open by the suspected process.
+                using var stream = new FileStream(
+                    probeTarget, FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
 
-            if (bytesRead <= 0)
-                return false;
+                var lengthToRead = Math.Min(stream.Length, _options.SampleBytesLimit);
+                if (lengthToRead <= 0)
+                    continue;
 
-            var entropy = CalculateShannonEntropy(buffer.AsSpan(0, bytesRead));
-            var exceeds = entropy >= _options.EntropyThreshold;
+                var buffer = new byte[lengthToRead];
+                var bytesRead = stream.Read(buffer, 0, (int)lengthToRead);
 
-            sample = new FileSample(filePath, bytesRead, entropy, exceeds);
-            return true;
+                if (bytesRead <= 0)
+                    continue;
+
+                var entropy = CalculateShannonEntropy(buffer.AsSpan(0, bytesRead));
+                var exceeds  = entropy >= _options.EntropyThreshold;
+
+                if (ext.Length > 0)
+                    _logger.LogTrace(
+                        "Stage 2 — sampled renamed file '{Probe}' (original: '{Original}'). Entropy={E:F2}",
+                        probeTarget, filePath, entropy);
+
+                sample = new FileSample(probeTarget, bytesRead, entropy, exceeds);
+                return true;
+            }
+            catch (FileNotFoundException)
+            {
+                // Path doesn't exist with this extension — try the next probe.
+                continue;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogTrace(ex, "Stage 2 — entropy probe failed for '{File}'", probeTarget);
+                // Don't give up on the other extensions; only stop retrying for truly fatal errors.
+                continue;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogTrace(ex, "Entropy Engine failed to read payload: {File}", filePath);
-            return false; // Safely absorb read-locks or transient deletions common in malware.
-        }
+
+        return false;
     }
 
     /// <summary>

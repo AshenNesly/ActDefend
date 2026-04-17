@@ -62,3 +62,26 @@ Alerts are prepended (newest first) and the list is capped at 100 entries.
 ## Close-to-Tray Behaviour
 
 `OnClosing` is cancelled (`e.Cancel = true`) and the window is hidden. A balloon tip confirms monitoring continues in background. Double-clicking the tray icon restores the window.
+
+## Live Counter Refresh (Phase 8 Fix)
+
+**Root cause fixed:** `Events Processed`, `Tracked Processes`, `Events Dropped`, and `Uptime` were displaying `0` in the dashboard even while alerts were being raised and events were flowing. The cause was twofold:
+
+1. `MonitoringStatusService.IncrementEventsProcessed()` and `SetActiveProcessCount()` never called `RaiseChanged()`, so `StatusChanged` was never fired for counter changes — only for collector start/stop.
+2. `MainWindowViewModel` only re-read counter values on `StatusChanged`, so values were permanently stale after startup.
+
+**Fixes applied:**
+
+- `MonitoringStatusService.SetActiveProcessCount()` now calls `RaiseChanged()`. This fires every `~2 seconds` (on each orchestration tick), giving the VM a regular push to update `TrackedProcesses`.
+- `MainWindowViewModel` now starts a `DispatcherTimer` (3-second interval) that manually raises `PropertyChanged` for `EventsProcessed`, `EventsDropped`, `DroppedBrush`, `UptimeText`, and `StatusBarText`. This covers high-frequency counters that change between status-change events.
+- `PipelineHostService` now correctly propagates collector drop-count deltas to `MonitoringStatusService.IncrementEventsDropped()` on each tick, so `Events Dropped` in the UI reflects real backpressure.
+
+**Counter refresh cadence after fix:**
+
+| Counter | Refresh trigger |
+|---|---|
+| Events Processed | DispatcherTimer every 3 s |
+| Tracked Processes | `StatusChanged` via `SetActiveProcessCount` every ~2 s |
+| Events Dropped | `StatusChanged` (collector state) + DispatcherTimer every 3 s |
+| Uptime | DispatcherTimer every 3 s |
+

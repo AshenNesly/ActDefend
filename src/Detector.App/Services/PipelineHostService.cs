@@ -31,6 +31,10 @@ public sealed class PipelineHostService : BackgroundService
     private readonly MonitoringStatusService _status;
     private readonly FeaturesOptions        _featuresOpts;
 
+    // Tracks the last cumulative dropped-event count synced to MonitoringStatusService
+    // so we can compute a delta on each tick instead of re-syncing the whole total.
+    private long _lastReportedDropped;
+
     public PipelineHostService(
         ILogger<PipelineHostService> logger,
         IEventCollector       collector,
@@ -136,10 +140,17 @@ public sealed class PipelineHostService : BackgroundService
 
                 await _orchestrator.TickAsync(stoppingToken).ConfigureAwait(false);
 
-                // Sync dropped-event counter from collector.
+                // Sync dropped-event counter from collector to the shared status service.
+                // The collector holds a cumulative absolute counter; we derive the delta per tick.
                 var dropped = _collector.DroppedEventCount;
-                if (dropped > 0)
-                    _logger.LogWarning("Collector dropped events total: {Count}", dropped);
+                if (dropped > _lastReportedDropped)
+                {
+                    var newDrops = (int)(dropped - _lastReportedDropped);
+                    for (int i = 0; i < newDrops; i++)
+                        _status.IncrementEventsDropped();
+                    _lastReportedDropped = dropped;
+                    _logger.LogWarning("Collector dropped {New} event(s) this tick (total: {Total})", newDrops, dropped);
+                }
 
                 // Dynamically sync status back to UI in case the underlying ETW session crashed silently.
                 if (!_collector.IsRunning)

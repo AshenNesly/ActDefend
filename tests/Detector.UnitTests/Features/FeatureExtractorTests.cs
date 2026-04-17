@@ -92,6 +92,42 @@ public sealed class FeatureExtractorTests
         _extractor.ActiveProcessCount.Should().Be(1);
     }
 
+    [Fact]
+    public void Extractor_PopulatesRecentRenamedSourceFiles_FromRenameEvents()
+    {
+        // Feed rename events for a single process.
+        _extractor.ProcessEvent(BuildEvent(500, FileSystemEventType.Rename, @"C:\docs\report.txt"));
+        _extractor.ProcessEvent(BuildEvent(500, FileSystemEventType.Rename, @"C:\docs\budget.txt"));
+
+        var results = _extractor.Emit();
+
+        // Should emit because renames are present (even without writes).
+        results.Should().ContainSingle();
+        var snapshot = results[0];
+
+        // RenameRatePerSec should reflect the 2 renames in the 5-second window.
+        snapshot.RenameRatePerSec.Should().BeGreaterThan(0);
+
+        // RecentRenamedSourceFiles must contain the renamed source paths for Stage 2.
+        snapshot.RecentRenamedSourceFiles.Should().HaveCount(2);
+        snapshot.RecentRenamedSourceFiles.Should().Contain(@"C:\docs\report.txt");
+        snapshot.RecentRenamedSourceFiles.Should().Contain(@"C:\docs\budget.txt");
+    }
+
+    [Fact]
+    public void Extractor_RecentWrittenFiles_RespectsBound_Of20()
+    {
+        // Feed 30 write events for a single process — queue must cap at 20.
+        for (int i = 0; i < 30; i++)
+            _extractor.ProcessEvent(BuildEvent(600, FileSystemEventType.Write, $@"C:\data\file_{i}.dat"));
+
+        var results = _extractor.Emit();
+
+        results.Should().ContainSingle();
+        // Queue is bounded to last 20 entries.
+        results[0].RecentWrittenFiles.Count.Should().BeLessThanOrEqualTo(20);
+    }
+
     private static FileSystemEvent BuildEvent(int pid, FileSystemEventType type, string path)
     {
         return new FileSystemEvent(
@@ -103,3 +139,4 @@ public sealed class FeatureExtractorTests
             FilePath: path);
     }
 }
+

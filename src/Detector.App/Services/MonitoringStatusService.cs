@@ -53,7 +53,15 @@ public sealed class MonitoringStatusService : IMonitoringStatus
 
     public void IncrementEventsProcessed()   => Interlocked.Increment(ref _eventsProcessed);
     public void IncrementEventsDropped()     => Interlocked.Increment(ref _eventsDropped);
-    public void SetActiveProcessCount(int n) => Volatile.Write(ref _activeProcessCount, n);
+
+    public void SetActiveProcessCount(int n)
+    {
+        Volatile.Write(ref _activeProcessCount, n);
+        // Fire StatusChanged so the GUI ViewModel can re-read live counter values.
+        // This is called every emit-interval tick (~2 s), providing a natural refresh cadence
+        // without wiring a separate timer in the status service.
+        RaiseChanged();
+    }
 
     private void RaiseChanged()
         => StatusChanged?.Invoke(this, EventArgs.Empty);

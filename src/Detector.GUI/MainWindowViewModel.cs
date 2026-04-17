@@ -35,6 +35,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _status.StatusChanged += (_, _) => Application.Current.Dispatcher.Invoke(RefreshStatus);
         _publisher.AlertRaised += (_, alert) => Application.Current.Dispatcher.Invoke(() => SafeAddAlert(alert));
 
+        // Refresh live counters (Events Processed, Uptime) independently of status change events.
+        // StatusChanged fires on collector state changes and every ~2 s via SetActiveProcessCount,
+        // but EventsProcessed increments much faster than that. A 3-second timer ensures the
+        // count display stays current without flooding the Dispatcher queue.
+        var liveRefreshTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        liveRefreshTimer.Tick += (_, _) =>
+        {
+            OnPropertyChanged(nameof(EventsProcessed));
+            OnPropertyChanged(nameof(EventsDropped));
+            OnPropertyChanged(nameof(DroppedBrush));
+            OnPropertyChanged(nameof(UptimeText));
+            OnPropertyChanged(nameof(StatusBarText));
+        };
+        liveRefreshTimer.Start();
+
         RefreshStatus();
         LoadHistoryAsync();
     }

@@ -19,6 +19,10 @@
     <PackageVersion Include="Serilog.Formatting.Compact"                     Version="3.0.0" />
   </ItemGroup>
 
+  <ItemGroup Label="UI">
+    <PackageVersion Include="Hardcodet.NotifyIcon.Wpf"                       Version="2.0.0" />
+  </ItemGroup>
+
   <ItemGroup Label="DI and Hosting">
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection"       Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting"                   Version="10.0.0" />

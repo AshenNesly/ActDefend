@@ -9,9 +9,8 @@
 | **Phase 3** | **Feature Aggregation** | ✅ Complete | In-memory time-sliding windows, burst calculations, unique file traversals tracking via `ProcessState`. |
 | **Phase 4** | **Stage 1 Detection** | ✅ Complete | Rule-weight mapping against extracted feature bursts. Configurable threshold linear math. |
 | **Phase 5** | **Stage 2 Confirmation** | ✅ Complete | Payload entropy evaluation via safe file sampling mapped natively against Stage 1 payload drops. |
-| **Phase 6** | **UI & Dashboard** | 🚧 Not Started | Extrapolation of WPF UI, Data Context binding, Tray integration, Allowlist management. |
-| **Phase 7** | **Database & Simulator** | ❌ Not Started | SQLite replacement of In-Memory repos, Simulator executable capabilities. |
+| **Phase 6** | **UI & Dashboard** | ✅ Complete | Extrapolation of WPF UI, Data Context binding, Tray integration wrapper, Allowlist management overrides via SQLite mapping. |
+| **Phase 7** | **Database & Simulator** | 🚧 Not Started | SQLite replacement of In-Memory repos, Simulator executable capabilities. |
 
-## Next Technical Steps (Phase 6 Focus)
-- Map live pipeline flows (Detection Alerts and Monitoring Status) directly into the `Detector.GUI` WPF dashboard.
-- Construct background Tray-mode application logic enabling the UI to passively execute on Windows Startups safely.
+## Next Technical Steps (Phase 7 Focus)
+- Construct execution capability inside `Detector.Simulator` mimicking native `.txt` overwrite hooks pushing into ActDefend test bounds dynamically confirming UI pops.

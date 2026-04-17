@@ -1,76 +1,62 @@
-using ActDefend.Core.Interfaces;
+using System.ComponentModel;
 using System.Windows;
-using System.Windows.Media;
+using ActDefend.Core.Interfaces;
+using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ActDefend.GUI;
 
-/// <summary>
-/// MainWindow code-behind — Phase 1 skeleton.
-/// Binds UI elements to IMonitoringStatus via a periodic refresh timer.
-///
-/// Phase 6 will replace the timer-based refresh with proper MVVM:
-/// - MainWindowViewModel bound via DataContext
-/// - INotifyPropertyChanged / ObservableCollection
-/// - Commands for alert acknowledgement, trusted-process management
-/// - Tray icon with NotifyIcon
-/// </summary>
 public partial class MainWindow : Window
 {
-    private readonly IMonitoringStatus _status;
-    private System.Windows.Threading.DispatcherTimer? _refreshTimer;
+    private readonly IAlertPublisher _publisher;
 
-    public MainWindow(IMonitoringStatus status)
+    public MainWindow(IMonitoringStatus status, IAlertPublisher publisher, IAlertRepository alerts)
     {
-        _status = status;
         InitializeComponent();
+        
+        _publisher = publisher;
+
+        // Hook MVVM Context exclusively
+        DataContext = new MainWindowViewModel(status, publisher, alerts);
+
+        // Trap publisher native warnings routing them up into the Windows Action Center via Tray overrides
+        _publisher.AlertRaised += OnAlertRaised;
     }
 
-    private void Window_Loaded(object sender, RoutedEventArgs e)
+    private void OnAlertRaised(object? sender, Core.Models.DetectionAlert alert)
     {
-        RefreshStatus();
-
-        // Refresh UI every 2 seconds.
-        _refreshTimer = new System.Windows.Threading.DispatcherTimer
+        Application.Current.Dispatcher.Invoke(() =>
         {
-            Interval = TimeSpan.FromSeconds(2)
-        };
-        _refreshTimer.Tick += (_, _) => RefreshStatus();
-        _refreshTimer.Start();
+            TaskbarIcon.ShowBalloonTip(
+                "Ransomware Detected",
+                $"{alert.ProcessName} triggered an anomaly.\n{alert.Summary}",
+                BalloonIcon.Warning);
+        });
     }
 
-    private void RefreshStatus()
+    private void TaskbarIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
     {
-        // Elevation
-        if (_status.IsElevated)
-        {
-            ElevationStatus.Text       = "Administrator";
-            ElevationStatus.Foreground = (SolidColorBrush)FindResource("SafeBrush");
-        }
-        else
-        {
-            ElevationStatus.Text       = "Not Elevated ⚠";
-            ElevationStatus.Foreground = (SolidColorBrush)FindResource("DangerBrush");
-        }
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
 
-        // Collector
-        if (_status.IsCollectorRunning)
-        {
-            CollectorStatus.Text       = "Running ●";
-            CollectorStatus.Foreground = (SolidColorBrush)FindResource("SafeBrush");
-        }
-        else
-        {
-            CollectorStatus.Text       = "Stopped";
-            CollectorStatus.Foreground = (SolidColorBrush)FindResource("DangerBrush");
-        }
-
-        EventsProcessed.Text  = _status.TotalEventsProcessed.ToString("N0");
-        TrackedProcesses.Text = _status.ActiveProcessCount.ToString("N0");
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        // Don't kill the monitoring kernel pipeline when clicking X. Send it down to the tray layer.
+        e.Cancel = true;
+        Hide();
+        
+        TaskbarIcon.ShowBalloonTip("ActDefend Running", "Monitoring running securely in the background.", BalloonIcon.Info);
+        
+        base.OnClosing(e);
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        _refreshTimer?.Stop();
+        _publisher.AlertRaised -= OnAlertRaised;
+        TaskbarIcon.Dispose();
+        
         base.OnClosed(e);
     }
 }

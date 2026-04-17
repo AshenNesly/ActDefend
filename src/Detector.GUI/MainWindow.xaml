@@ -18,7 +18,6 @@
 
         <!-- Adding Taskbar wrapper hooking MVVM strictly to avoid background death loops -->
         <tb:TaskbarIcon x:Name="TaskbarIcon"
-                        IconSource="/Images/shield.ico"
                         ToolTipText="ActDefend Ransomware Monitor"
                         TrayMouseDoubleClick="TaskbarIcon_TrayMouseDoubleClick" />
 

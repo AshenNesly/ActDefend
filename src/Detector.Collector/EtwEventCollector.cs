@@ -103,9 +103,14 @@ public sealed class EtwEventCollector : IEventCollector, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "ETW TraceEventSession processing loop threw an exception.");
+                    _logger.LogCritical(ex, "ETW TraceEventSession processing loop crashed unrecoverably.");
                 }
-                _logger.LogInformation("ETW TraceEventSession processing loop stopped.");
+                finally
+                {
+                    _logger.LogWarning("ETW TraceEventSession processing loop has stopped. Monitoring is dead.");
+                    _running = false;
+                    _channel?.Writer.TryComplete();
+                }
             }, TaskCreationOptions.LongRunning);
 
             _logger.LogInformation("ETW Monitor Session '{SessionName}' successfully started.", SessionName);

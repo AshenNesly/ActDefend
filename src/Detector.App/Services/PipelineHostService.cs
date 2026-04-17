@@ -140,6 +140,13 @@ public sealed class PipelineHostService : BackgroundService
                 var dropped = _collector.DroppedEventCount;
                 if (dropped > 0)
                     _logger.LogWarning("Collector dropped events total: {Count}", dropped);
+
+                // Dynamically sync status back to UI in case the underlying ETW session crashed silently.
+                if (!_collector.IsRunning)
+                {
+                    _status.SetCollectorRunning(false);
+                    _logger.LogWarning("Collector is no longer running. Monitoring pipeline is halted.");
+                }
             }
         }
         catch (OperationCanceledException)

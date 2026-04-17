@@ -6,11 +6,11 @@
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
         <!--
-          requireAdministrator — Windows will always show a UAC elevation prompt
-          when this executable is launched without admin rights.
-          This is REQUIRED for ETW-based monitoring to function.
+          asInvoker — Allows dotnet run to launch the process normally.
+          Our internal `ElevationHelper.TryRelaunchElevated(args)` mechanism in Program.cs
+          will then trigger a UAC prompt and cleanly relaunch the app natively.
         -->
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>

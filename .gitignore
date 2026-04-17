@@ -399,3 +399,5 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+LOCAL_BUILD_INSTRUCTIONS.txt

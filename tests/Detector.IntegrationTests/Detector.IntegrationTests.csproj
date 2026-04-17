@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Detector.IntegrationTests — integration tests requiring elevated privileges or ETW.
+    Must be run manually or in a configured CI environment with admin rights.
+    Validates end-to-end pipeline: collector → features → detection → storage.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>ActDefend.IntegrationTests</RootNamespace>
+    <AssemblyName>ActDefend.IntegrationTests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Detector.Core\Detector.Core.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Collector\Detector.Collector.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Features\Detector.Features.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Detection\Detector.Detection.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Entropy\Detector.Entropy.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Storage\Detector.Storage.csproj" />
+  </ItemGroup>
+</Project>

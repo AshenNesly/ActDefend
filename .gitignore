@@ -400,4 +400,25 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+# ── ActDefend project-specific rules ─────────────────────────────────────────
+
+# Local build instructions — authoritative brief, never commit
 LOCAL_BUILD_INSTRUCTIONS.txt
+
+# Generated runtime data — never commit
+logs/
+*.db
+*.db-shm
+*.db-wal
+
+# Simulator outputs (may contain test files)
+simulator-output/
+simulator-workspace/
+
+# Evaluation / experiment outputs
+evaluation-output/
+*.eval.csv
+*.eval.json
+
+# Temporary detector state
+*.etw.tmp

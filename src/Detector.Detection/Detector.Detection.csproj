@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Detector.Detection — Stage 1 lightweight scoring engine and orchestration.
+    Consumes FeatureSnapshots, emits SuspicionEvents.
+    Triggers Stage 2 (Detector.Entropy) when Stage 1 suspicion threshold is crossed.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>ActDefend.Detection</RootNamespace>
+    <AssemblyName>ActDefend.Detection</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Detector.Core\Detector.Core.csproj" />
+    <ProjectReference Include="..\Detector.Features\Detector.Features.csproj" />
+  </ItemGroup>
+</Project>

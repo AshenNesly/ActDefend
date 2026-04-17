@@ -3,10 +3,13 @@
 ActDefend operates as a Background UI Desktop Application. After granting Administrator elevation metrics, the tool sits actively tracing limits softly mapped exclusively via ETW.
 
 ## System Dashboard Visuals
-When actively running, the User Interface displays active system metrics:
-- **ELEVATION:** `elevated` - Administrator bounds correctly established.
-- **COLLECTOR:** `running` - ETW `SessionName` cleanly hooking kernel metrics.
-- **PROCESSES TRACKED:** Aggregated `ActiveProcessCount`.
+When actively running, the User Interface displays active system metrics updating continuously:
+- **ELEVATION:** Green (`Active`) indicates Administrator bounds correctly established. Red indicates missing privileges.
+- **COLLECTOR:** Green (`Running`) indicates ETW is cleanly hooking kernel metrics.
+- **EVENTS PROCESSED:** Total File IO metrics ingested.
+- **TRACKED PROCESSES:** Active programs currently being analyzed by the Feature Extractor.
+- **EVENTS DROPPED:** Amber warning if pipeline backpressure forces ingestion skips.
+- **UPTIME:** Duration the ActDefend daemon has been active.
 
 ## Recent Alerts Display
 Any suspicious mapping (usually tracked initially via the Safe Simulator executable) surfaces directly within the central table:

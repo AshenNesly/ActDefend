@@ -20,4 +20,4 @@ To review internal configurations and run loops manually, navigate through `docs
 * [Installation](docs/installation.md)
 * [Configuration limits](docs/configuration.md)
 * [Technical Design](docs/technical-design.md)
-* [Testing Limits & Evaluation Plan](docs/evaluation-plan.md)
+* [Testing Limits & Evaluation Plan](docs/testing-and-evaluation.md)

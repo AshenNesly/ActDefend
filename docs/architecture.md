@@ -1,72 +1,113 @@
 # ActDefend System Architecture
 
-ActDefend is a lightweight behavioural ransomware detection system designed for Windows desktop environments. It operates exclusively in user space, leveraging Event Tracing for Windows (ETW) to detect ransomware-like file activity at an early stage.
+ActDefend is a lightweight behavioural ransomware detection system for Windows desktops. It operates entirely in user space using Event Tracing for Windows (ETW) and requires no kernel drivers.
 
 ## High-Level Pipeline
 
-The pipeline is strictly sequential and relies on a multi-stage approach, where low-cost telemetry aggregation precedes heavier analytical checks.
+Detection is a strictly sequential, two-stage pipeline. Low-cost behavioural scoring runs on every emit tick; expensive entropy I/O runs only when Stage 1 raises suspicion.
 
 ```mermaid
 flowchart TD
-    OS[Windows OS] -->|ETW Events| Coll[1. Event Collector]
-    Coll -->|FileSystemEvents| Feat[2. Feature Extractor]
-    Feat -->|FeatureSnapshots| Stage1[3. Stage 1: Lightweight Scoring Engine]
-    
-    Stage1 -->|Suspicion Level| Check{Is Suspicious?}
-    Check -- Yes --> Stage2[4. Stage 2: Entropy Confirmation Engine]
-    Check -- No --> Drop[Discard]
-    
-    Stage2 -->|Confirmation| Check2{Confirmed?}
-    Check2 -- Yes --> Orch[5. Detection Orchestrator]
-    Check2 -- No --> OrchFalse[Record False Positive]
-    
-    Orch --> Subs_Output[Outputs]
-    
-    subgraph Outputs [Presentation & Persistence]
-        DB[(9. Local SQLite DB)]
-        Log[8. Structured JSON Logs]
-        GUI[6. WPF Dashboard Dashboard / 7. Tray]
-    end
-    
-    Subs_Output --> Logs
-    Subs_Output --> DB
-    Subs_Output --> GUI
+    OS[Windows OS / ETW Kernel File IO] -->|raw file events| Coll[1. EtwEventCollector]
+    Coll -->|FileSystemEvent stream| Feat[2. FeatureExtractor]
+    Feat -->|FeatureSnapshot per PID| Stage1[3. Stage 1: LightweightScoringEngine]
+
+    Stage1 -->|score 0–100| Check{Score ≥ SuspicionThreshold?}
+    Check -- No --> Drop[Discard snapshot]
+    Check -- Yes --> CooldownCheck{Stage 2 cooldown elapsed?}
+    CooldownCheck -- No --> SkipS2[Skip Stage 2 this tick]
+    CooldownCheck -- Yes --> Stage2[4. Stage 2: EntropySamplingEngine]
+
+    Stage2 -->|EntropyResult| Check2{IsConfirmed?}
+    Check2 -- No --> DiscardS2[Log and discard]
+    Check2 -- Yes --> Orch[5. DetectionOrchestrator raises DetectionAlert]
+
+    Orch --> DB[(6a. SQLite — Detector.Storage)]
+    Orch --> Pub[6b. IAlertPublisher.AlertRaised event]
+    Pub --> GUI[7. WPF Dashboard — Detector.GUI]
+    Pub --> Tray[8. System Tray balloon notification]
+    Orch --> Log[9. Structured JSON log — Detector.Logging]
 ```
 
 ## Architectural Components
 
-1. **Event Collector (`Detector.Collector`)**
-   - Normalizes raw `Microsoft-Windows-Kernel-File` ETW payloads into structured `FileSystemEvent` objects.
-   - Provides backpressure safety using in-memory bounded channels (`Channel<FileSystemEvent>`).
-   - Resolves PID to Process Names.
-   - *Architecture Note:* Requires Administrator elevation.
-2. **Feature Extractor (`Detector.Features`)**
-   - Maintains transient state and aggregates individual file events into process-aware `FeatureSnapshot` groupings based on configurable sliding time windows.
-3. **Stage 1 Lightweight Scoring Engine (`Detector.Detection`)**
-   - Continuously evaluates `FeatureSnapshot` objects to generate explainable low-latency suspicion scores (e.g. write rates, traversals).
-4. **Stage 2 Entropy Confirmation Engine (`Detector.Entropy`)**
-   - Triggers *only* if Stage 1 signals a process as highly suspicious.
-   - Performs a bounded file sample entropy calculation to verify if file payloads strongly suggest encryption.
-5. **Detection Orchestrator (`Detector.Detection`)**
-   - The authoritative core component tying the pipeline together. Routes the results of the Feature Extractor into Stage 1, evaluates triggers for Stage 2, and handles alert generation.
-6. **GUI Dashboard (`Detector.GUI`)**
-   - A lightweight WPF interface operating independent of the core logic processing, visually depicting monitoring state and pipeline health via generic interface boundaries (`IMonitoringStatus`).
-7. **Tray Integration (`Detector.GUI`)**
-   - Windows notification area support for quiet background monitoring presence.
-8. **Local Logging (`Detector.Logging`)**
-   - Machine-friendly and debug-oriented contextual JSON logging (powered by `Serilog`).
-9. **Local Database (`Detector.Storage`)**
-   - Durable history of alerts and trusted rules (powered by SQLite). *Note: Currently mocked with in-memory persistence during Phase 1/2 development.*
-10. **Safe Ransomware Simulator (`Detector.Simulator`)**
-    - Isolated tool for generating controlled telemetry (file creations, renames) to evaluate the pipeline without resorting to actual malware testing.
-11. **Configuration Management (`Detector.Core`)**
-    - Centralized tunable boundaries (thresholds, timings, weights) loaded from `appsettings.json`.
-12. **Documentation Set (`docs/`)**
-    - The repository of truth for current state and architectural specifications.
-13. **Tests (`tests/`)**
-    - Safety netting spanning pure Unit verification through Elevated integration runs.
+### 1. EtwEventCollector (`Detector.Collector`)
+- Opens a named ETW kernel session (`ActDefend-Monitor-Session`) using `Microsoft.Diagnostics.Tracing.TraceEvent`.
+- Subscribes to `FileIOCreate`, `FileIOWrite`, `FileIORead`, `FileIORename`, `FileIODelete` kernel events.
+- Normalises each event into a `FileSystemEvent` record (PID, process name, file path, event type, timestamp).
+- Filters obvious noise: PIDs ≤ 4, paths under `C:\Windows\`, and `.TMP`-suffixed paths.
+- Pushes events into a bounded `System.Threading.Channel<FileSystemEvent>` (capacity 8 192, `DropWrite` on full).
+- Resolves PID → process name via a lazy `ConcurrentDictionary` cache (capped at 5 000 entries).
+- Requires **Administrator elevation**. Propagates `UnauthorizedAccessException` if run unprivileged.
 
-## Practical Dev Adjustments / Implementation Notes
-- **Elevation Requirement Matrix:** ETW File session demands Administrator privileges (`NT Kernel Logger` style ETW does; however, `TraceEventSession` targeting File I/O explicitly requires elevation regardless of User Mode vs Kernel Mode source). For user experience, the GUI app attempts automatic UAC self-reboot. 
-- **Storage Strategy:** SQLite is the eventual target, but to enable parallelizing pipeline development, the current `Detector.Storage` layer injects interface-contract-abiding In-Memory concurrent dictionaries.
-- **Dependency Inversion:** Features, Orchestration, Entropy, Storage, GUI, and Logging represent strictly layered, abstracted domains. `Detector.App` is the central composer, resolving these together into a standard .NET 10 Background Service flow.
+### 2. FeatureExtractor (`Detector.Features`)
+- Maintains a `ConcurrentDictionary<int, ProcessState>` — one entry per active PID.
+- Each `ProcessState` accumulates `FileSystemEvent`s in a list (bounded by the context window) and separately tracks newly-created file paths in a capped `HashSet<string>`.
+- On each orchestration tick, `Emit()` produces a `FeatureSnapshot` per PID with six metrics computed over a configurable 5-second primary window (see [modules/FeatureExtractor.md](modules/FeatureExtractor.md)).
+- `ExpireInactiveState()` removes PIDs silent for more than `InactivityExpirySeconds` (default 120 s).
+
+### 3. LightweightScoringEngine — Stage 1 (`Detector.Detection`)
+- Scores each `FeatureSnapshot` on a 0–100 scale using six weighted, normalised features.
+- Any score ≥ `SuspicionThreshold` (default 60.0) is flagged as suspicious.
+- Produces `ScoringResult` with a human-readable explanation identifying the top-3 contributing features.
+- All weights and normalisation thresholds are configurable in `appsettings.json`.
+
+### 4. EntropySamplingEngine — Stage 2 (`Detector.Entropy`)
+- Triggered only when Stage 1 scores a process as suspicious and the per-process cooldown has elapsed.
+- Builds a candidate file list by merging `RecentWrittenFiles` and `RecentRenamedSourceFiles` from the snapshot.
+- For each candidate, probes the original path; if not readable, attempts common ransomware extensions (`.locked`, `.encrypted`, `.enc`, `.crypto`, `.crypted`).
+- Reads up to `SampleBytesLimit` (default 64 KiB) per file and computes Shannon entropy.
+- Skips files with known high-entropy-but-benign extensions (`.dll`, `.exe`, `.zip`, `.png`, etc.) to avoid false positives from compilers and installers.
+- Confirms detection when ≥ `ConfirmationMinFiles` (default 2) files exceed `EntropyThreshold` (default 7.2 bits/byte).
+
+### 5. DetectionOrchestrator (`Detector.Detection`)
+- The central coordinator; contains no detection logic itself.
+- On each tick: calls `FeatureExtractor.Emit()` → scores each snapshot → calls Stage 2 where needed → builds `DetectionAlert` → calls `IAlertRepository.SaveAsync()` + `IAlertPublisher.Publish()`.
+
+### 6. Storage Layer (`Detector.Storage`)
+- **`AlertRepository`**: Persists `DetectionAlert` objects to a local SQLite database (`actdefend.db`) using `Microsoft.Data.Sqlite` directly (no ORM). Uses WAL mode and a `Lock` for thread safety. Alerts survive application restarts.
+- **`AlertPublisher`**: In-process event (`EventHandler<DetectionAlert>`) that notifies the GUI immediately when an alert is raised.
+- **`TrustedProcessRepository`**: Loads default exclusions from `appsettings.json` into memory at startup. Runtime additions are held in memory only and **not persisted** to SQLite — they are reset on restart.
+
+### 7 & 8. GUI + Tray (`Detector.GUI`)
+- WPF application hosted by `WpfHostedService` on a dedicated STA thread, integrated with the .NET Generic Host lifetime.
+- `MainWindowViewModel` subscribes to `IMonitoringStatus.StatusChanged` and `IAlertPublisher.AlertRaised` and bridges them to WPF data-binding via the Dispatcher.
+- A `DispatcherTimer` (3-second interval) refreshes high-frequency live counters independently.
+- Closing the window hides it to tray; double-clicking the tray icon restores the window. The monitoring pipeline continues uninterrupted.
+
+### 9. Logging (`Detector.Logging`)
+- Wraps Serilog with two sinks: console (human-readable text) and rolling JSON file (`logs/actdefend-<date>.json`).
+- A bootstrap logger captures elevation-check messages before the host is built.
+
+## Dependency and Layering
+
+```
+Detector.Core       — interfaces + models + configuration (no dependencies on other projects)
+     ▲
+     │ (references)
+Detector.Collector  ──┐
+Detector.Features   ──┤
+Detector.Detection  ──┤─▶ Detector.App  ── Detector.GUI
+Detector.Entropy    ──┤
+Detector.Storage    ──┘
+Detector.Logging    ──┘
+```
+
+`Detector.App` is the composition root. All cross-cutting dependencies are resolved via `IServiceProvider`; no project holds a direct reference to another outside this graph.
+
+## Key Design Decisions
+
+### No Kernel Driver
+ETW (user-space) provides sufficient file-I/O telemetry without the complexity or end-user friction of a Mini-Filter driver.
+
+### Two-Stage Filtering
+Cheap behavioural scoring on every tick keeps CPU overhead near zero. Expensive entropy I/O only fires when Stage 1 is already confident, and a per-process cooldown (default 10 s) prevents repeated sampling.
+
+### Backpressure — Drop vs Block
+The bounded channel uses `DropWrite` mode. Under extreme event velocity the collector drops events (counter available in UI) rather than blocking the ETW callback thread or growing unboundedly.
+
+### Explainability Over Black Box
+Every alert carries a `ScoringResult.Explanation` (top-3 contributing features) and an `EntropyResult.Explanation` (files sampled, entropy values, confirmation count). This makes every detection traceable without reviewing logs.
+
+### Configuration Without Recompilation
+Every threshold, weight, window size, and sampling parameter lives in `appsettings.json`. Changing detection sensitivity requires only editing the file and restarting the application.

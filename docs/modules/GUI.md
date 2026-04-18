@@ -12,7 +12,7 @@ The GUI layer uses **MVVM** cleanly separated into three files:
 | `MainWindow.xaml.cs` | Code-behind — event wiring only (tray notification, close-to-tray) |
 | `MainWindowViewModel.cs` | ViewModel — all data-binding logic |
 
-Started and hosted by `WpfHostedService` (in `Detector.App`) on a dedicated STA thread so the generic host controls lifetime.
+Started and hosted by `WpfHostedService` (in `Detector.App`) on a dedicated STA thread (`ApartmentState.STA`) so the .NET Generic Host controls the application lifetime. `WpfHostedService.StopAsync` calls `App.Dispatcher.InvokeAsync(() => app.Shutdown())`, ensuring WPF shutdown is driven from the host cancellation token, not a window close event.
 
 ## Tray Icon
 
@@ -65,10 +65,10 @@ Alerts are prepended (newest first) and the list is capped at 100 entries.
 
 ## Live Counter Refresh (Phase 8 Fix)
 
-**Root cause fixed:** `Events Processed`, `Tracked Processes`, `Events Dropped`, and `Uptime` were displaying `0` in the dashboard even while alerts were being raised and events were flowing. The cause was twofold:
+**Root cause fixed:** `Events Processed`, `Tracked Processes`, `Events Dropped`, and `Uptime` were displaying `0` in the dashboard even while alerts were being raised and events were flowing. Two separate issues:
 
-1. `MonitoringStatusService.IncrementEventsProcessed()` and `SetActiveProcessCount()` never called `RaiseChanged()`, so `StatusChanged` was never fired for counter changes — only for collector start/stop.
-2. `MainWindowViewModel` only re-read counter values on `StatusChanged`, so values were permanently stale after startup.
+1. `MonitoringStatusService.SetActiveProcessCount()` did not call `RaiseChanged()`, so `StatusChanged` was never fired during normal operation — only on collector start/stop transitions.
+2. `MainWindowViewModel` only re-read counter values when `StatusChanged` fired. Since `IncrementEventsProcessed()` is called once per ETW event (too frequent to fire a UI event), there was no mechanism to refresh `EventsProcessed` between status-change events.
 
 **Fixes applied:**
 

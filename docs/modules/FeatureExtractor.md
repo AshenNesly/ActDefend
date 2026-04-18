@@ -36,7 +36,7 @@ All metrics derived from the *Primary Burst Window*:
 | `UniqueDirectoriesTouched` | Count of distinct parent directories from any event type |
 | `WriteReadRatio` | `Writes / Reads` |
 
-*Note on `WriteReadRatio`:* When reads are exactly 0, the ratio evaluates to `0.0`. Pure write-bursts are distinctly characteristic of safe extraction utilities/download streams, and ransomware necessarily requires reading original structure sequentially. Inflating zero-reads removes penalty bounds across innocuous payloads.*
+*Note on `WriteReadRatio`:* When `primaryReads == 0`, the ratio is explicitly set to `0.0` (Phase 8e fix). Previously it was `double.MaxValue`, which gave the maximum 10-point penalty to any pure write-only process. Downloaders and network-stream installers write without reading local disk files, so they were incorrectly penalised. Ransomware must read original file content to encrypt it, so it produces a non-zero read count and a meaningful ratio. Setting the ratio to `0.0` for zero-read processes removes the false-positive pressure on installers while preserving scoring accuracy for real ransomware.*
 
 ---
 
@@ -83,8 +83,8 @@ Both lists are populated in `Emit()` and included in `FeatureSnapshot`. Stage 2 
 Unit tests in `tests/Detector.UnitTests/Features/FeatureExtractorTests.cs` cover:
 
 - Ratio calculation correctness
-- `double.MaxValue` ratio when no reads
-- Reads-only produces no snapshot (no score contribution)
+- `WriteReadRatio = 0.0` when reads are 0 (Phase 8e false-positive fix)
+- Reads-only event produces no snapshot (no score contribution)
 - State expiry logic
-- **`RecentRenamedSourceFiles` populated from rename events** (root cause regression test)
+- **`RecentRenamedSourceFiles` populated from rename events** (Phase 8d regression test)
 - **`RecentWrittenFiles` bounded at ≤ 20 entries** (queue bound validation)

@@ -22,18 +22,19 @@ A perfectly compressed or encrypted byte array sits near `8.0`. Standard plainte
 1. `RecentWrittenFiles` — paths of files with recent write events (may have been renamed away)
 2. `RecentRenamedSourceFiles` — source paths from recent rename events (original name before extension substitution)
 
-Both lists are deduplicated before sampling. If a candidate path does not exist, `TrySampleFile` probes six known ransomware extensions appended to the original path:
+Both lists are deduplicated before sampling. For each candidate path, `TrySampleFile` first tries the original path as-is, then — if the original is not readable — probes 5 common ransomware extensions appended to that path:
 
-| Probe | Cover |
+| Probe | Covers |
 |---|---|
-| `""` (original) | file still in place |
-| `.locked`        | simulator + common ransomware |
-| `.encrypted`     | common ransomware |
-| `.enc`           | common ransomware |
-| `.crypto`        | common ransomware |
-| `.crypted`       | common ransomware |
+| `""` (original path) | file still at its original location |
+| `.locked` | simulator + common ransomware |
+| `.encrypted` | common ransomware |
+| `.enc` | common ransomware |
+| `.crypto` | common ransomware |
+| `.crypted` | common ransomware |
 
-Only the first readable probe succeeds; the rest are skipped. A `LogTrace` entry is emitted when a renamed variant is successfully found.
+The first readable probe wins; remaining probes are skipped. A `LogTrace` entry is emitted when a renamed variant (non-empty extension) is successfully found.
+
 
 ### Safe Live I/O Bounds
 1. **Passive Access:** `FileShare.ReadWrite | FileShare.Delete` allows passive analysis without blocking the active process.

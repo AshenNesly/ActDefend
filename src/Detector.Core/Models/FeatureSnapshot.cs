@@ -43,7 +43,10 @@ public sealed record FeatureSnapshot
     /// <summary>
     /// Write-to-read ratio in the primary window.
     /// High values indicate write-heavy behaviour with little reading — a ransomware pattern.
-    /// Set to <see cref="double.MaxValue"/> when read count is zero and write count is positive.
+    /// Set to <c>0.0</c> when read count is zero (pure write-only process). This avoids
+    /// over-penalising benign downloaders and installers that write files without reading
+    /// local disk content. Ransomware performing in-place encryption must read the original
+    /// file, so it produces a non-zero read count and a meaningful ratio.
     /// </summary>
     public double WriteReadRatio { get; init; }
 

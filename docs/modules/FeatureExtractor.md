@@ -31,6 +31,7 @@ All metrics derived from the *Primary Burst Window*:
 |---|---|
 | `WriteRatePerSec` | `PrimaryWrites / PrimaryWindowSeconds` |
 | `RenameRatePerSec` | `PrimaryRenames / PrimaryWindowSeconds` |
+| `PreExistingModifyRatePerSec` | Frequency of Writes/Renames/Deletes on Pre-Existing datasets exclusively |
 | `UniqueFilesWritten` | Count of distinct write-event file paths in primary window |
 | `UniqueDirectoriesTouched` | Count of distinct parent directories from any event type |
 | `WriteReadRatio` | `Writes / Reads` |
@@ -60,6 +61,7 @@ Both lists are populated in `Emit()` and included in `FeatureSnapshot`. Stage 2 
 | `WriteRatePerSec` | Primary window write count |
 | `UniqueFilesWritten` | Primary window write HashSet |
 | `RenameRatePerSec` | Primary window rename count |
+| `PreExistingModifyRatePerSec` | Primary window pre-existing modify count |
 | `UniqueDirectoriesTouched` | Primary window all-event HashSet |
 | `WriteReadRatio` | Primary window write/read division |
 | `TotalWritesInContext` | Full context window write count |

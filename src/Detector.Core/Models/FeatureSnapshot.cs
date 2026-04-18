@@ -34,6 +34,13 @@ public sealed record FeatureSnapshot
     public int UniqueDirectoriesTouched { get; init; }
 
     /// <summary>
+    /// Critical context modifier: Extracted purely from Writes/Renames/Deletes bounded against 
+    /// paths that WERE NOT CREATED by this active process window. High bounds indicate modifying 
+    /// existing user-data directly instead of just extracting installation caches natively.
+    /// </summary>
+    public double PreExistingModifyRatePerSec { get; init; }
+
+    /// <summary>
     /// Write-to-read ratio in the primary window.
     /// High values indicate write-heavy behaviour with little reading — a ransomware pattern.
     /// Set to <see cref="double.MaxValue"/> when read count is zero and write count is positive.

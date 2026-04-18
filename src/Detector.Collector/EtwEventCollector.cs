@@ -176,7 +176,16 @@ public sealed class EtwEventCollector : IEventCollector, IDisposable
 
     private void HandleFileCreate(FileIOCreateTraceData data)
     {
-        PublishEvent(FileSystemEventType.Write, data.ProcessID, data.FileName, null);
+        // Disposition maps to NT API bounds: 0 = SUPERSEDE, 2 = CREATE_NEW, 5 = CREATE_ALWAYS.
+        // If it simply opened an existing file (1 = OPEN_EXISTING, 3 = OPEN_ALWAYS for existing), 
+        // we intentionally drop it to avoid corrupting the WriteRate with passive opens.
+        var disp = (int)data.CreateDisposition;
+        bool isNew = disp == 0 || disp == 2 || disp == 5;
+
+        if (isNew)
+        {
+            PublishEvent(FileSystemEventType.Create, data.ProcessID, data.FileName, null);
+        }
     }
 
     private void HandleFileWrite(FileIOReadWriteTraceData data)

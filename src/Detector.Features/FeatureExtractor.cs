@@ -67,6 +67,7 @@ public sealed class FeatureExtractor : IFeatureExtractor
             int primaryWrites = 0;
             int primaryReads = 0;
             int primaryRenames = 0;
+            int preExistingTouches = 0;
             var primaryUniqueFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var primaryUniqueDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             
@@ -112,6 +113,21 @@ public sealed class FeatureExtractor : IFeatureExtractor
                         if (recentRenamedSourceQueue.Count > 20)
                             recentRenamedSourceQueue.RemoveAt(0);
                     }
+
+                    if (evt.EventType == FileSystemEventType.Write || 
+                        evt.EventType == FileSystemEventType.Rename || 
+                        evt.EventType == FileSystemEventType.Delete)
+                    {
+                        if (!state.IsNewlyCreated(evt.FilePath))
+                        {
+                            preExistingTouches++;
+                        }
+                        else if (evt.OldFilePath != null && !state.IsNewlyCreated(evt.OldFilePath))
+                        {
+                            // If the source of a rename is preexisting, the action touches pre-existing data.
+                            preExistingTouches++;
+                        }
+                    }
                 }
             }
 
@@ -123,6 +139,7 @@ public sealed class FeatureExtractor : IFeatureExtractor
             var durationSecs = _options.PrimaryWindowSeconds > 0 ? _options.PrimaryWindowSeconds : 1.0;
             var writeRate = primaryWrites / durationSecs;
             var renameRate = primaryRenames / durationSecs;
+            var preExistingModifyRate = preExistingTouches / durationSecs;
 
             double ratio = 0;
             if (primaryWrites > 0)
@@ -144,6 +161,7 @@ public sealed class FeatureExtractor : IFeatureExtractor
                 RenameRatePerSec = renameRate,
                 UniqueDirectoriesTouched = primaryUniqueDirs.Count,
                 WriteReadRatio = ratio,
+                PreExistingModifyRatePerSec = preExistingModifyRate,
 
                 TotalWritesInContext = totalWrites,
                 TotalRenamesInContext = totalRenames,

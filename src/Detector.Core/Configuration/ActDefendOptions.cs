@@ -75,11 +75,12 @@ public sealed class Stage1Options
 
 public sealed class Stage1Weights
 {
-    [Range(0.0, 100.0)] public double WriteRate          { get; init; } = 20.0;
-    [Range(0.0, 100.0)] public double UniqueFilesWritten { get; init; } = 20.0;
-    [Range(0.0, 100.0)] public double RenameRate         { get; init; } = 25.0;
-    [Range(0.0, 100.0)] public double DirectorySpread    { get; init; } = 20.0;
-    [Range(0.0, 100.0)] public double WriteReadRatio     { get; init; } = 15.0;
+    [Range(0.0, 100.0)] public double WriteRate             { get; init; } = 10.0;
+    [Range(0.0, 100.0)] public double UniqueFilesWritten    { get; init; } = 15.0;
+    [Range(0.0, 100.0)] public double RenameRate            { get; init; } = 20.0;
+    [Range(0.0, 100.0)] public double DirectorySpread       { get; init; } = 20.0;
+    [Range(0.0, 100.0)] public double WriteReadRatio        { get; init; } = 10.0;
+    [Range(0.0, 100.0)] public double PreExistingModifyRate { get; init; } = 25.0;
 }
 
 public sealed class Stage1Thresholds
@@ -89,6 +90,7 @@ public sealed class Stage1Thresholds
     [Range(0.1, 1000.0)] public double RenameRatePerSec            { get; init; } = 5.0;
     [Range(1, 1000)]     public int    UniqueDirectoriesPerWindow  { get; init; } = 10;
     [Range(0.1, 100.0)]  public double WriteReadRatioMax           { get; init; } = 5.0;
+    [Range(0.1, 1000.0)] public double PreExistingModifyRatePerSec { get; init; } = 5.0;
 }
 
 // ── Stage 2 ───────────────────────────────────────────────────────────────────

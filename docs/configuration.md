@@ -37,7 +37,7 @@ All configurations are strictly checked using `.ValidateDataAnnotations().Valida
 
 ### Stage 1 (Scoring) Options
 - **`SuspicionThreshold`**: `[Range(1.0, 1000.0)]` - Flat baseline triggering Stage 2 natively. Default: `60.0`.
-- **`Weights` & `Thresholds`**: Mapped logic dictating explicitly mathematically validating `WriteRate`, `UniqueFilesWritten`, `RenameRate`, `DirectorySpread`, and `WriteReadRatio`. All bounds use `[Range(0.0, 100.0)]` multipliers structurally.
+- **`Weights` & `Thresholds`**: Mapped logic dictating explicitly mathematically validating `WriteRate`, `UniqueFilesWritten`, `RenameRate`, `DirectorySpread`, `WriteReadRatio`, and `PreExistingModifyRate`. All bounds use `[Range(0.0, 100.0)]` multipliers structurally.
 
 ### Stage 2 (Entropy) Options
 - **`EntropyThreshold`**: `[Range(0.0, 8.0)]` - Flat bounds determining encryption hooks cleanly. Default `7.2`.

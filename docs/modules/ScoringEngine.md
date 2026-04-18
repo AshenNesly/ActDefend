@@ -10,7 +10,7 @@ The core metric is the **Suspicion Score**, mapped on a strictly normalized `0.0
 ### The Algorithm
 Unlike black-box Machine Learning pipelines, ActDefend intentionally implements an **explainable linear map**.
 
-1. **Metrics Definition:** The engine evaluates 5 variables: `WriteRate`, `UniqueFilesWritten`, `RenameRate`, `DirectorySpread`, and the `WriteReadRatio`.
+1. **Metrics Definition:** The engine evaluates 6 variables: `WriteRate`, `UniqueFilesWritten`, `RenameRate`, `DirectorySpread`, `WriteReadRatio`, and `PreExistingModifyRate`.
 2. **Dynamic Thresholds:** Each variable has a theoretical tuning 'Limit' (e.g. `10.0 Writes Per Second`).
 3. **Weights:** Each variable possesses an active Weight configuration summing to 100 max points (e.g. `20 Points` for WriteRate).
 

@@ -70,6 +70,13 @@ public sealed class LightweightScoringEngine : IScoringEngine
         contributions["WriteReadRatio"] = writeReadContrib;
         totalScore += writeReadContrib;
 
+        var preExistingContrib = ComputeContribution(
+            snapshot.PreExistingModifyRatePerSec,
+            _options.Thresholds.PreExistingModifyRatePerSec,
+            _options.Weights.PreExistingModifyRate);
+        contributions["PreExistingModifyRate"] = preExistingContrib;
+        totalScore += preExistingContrib;
+
         // Cap strictly at 100 for percentage scale
         totalScore = Math.Min(totalScore, 100.0);
         

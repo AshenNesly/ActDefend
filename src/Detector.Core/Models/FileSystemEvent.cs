@@ -34,6 +34,8 @@ public enum FileSystemEventType
     Rename,
     /// <summary>File was deleted.</summary>
     Delete,
+    /// <summary>A definitively new file was created on disk.</summary>
+    Create,
     /// <summary>An ETW event was received but did not fit the above categories.</summary>
     Other
 }

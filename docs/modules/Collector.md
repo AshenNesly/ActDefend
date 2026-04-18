@@ -7,7 +7,7 @@ The Collector exclusively uses **Event Tracing for Windows (ETW)** natively (via
 
 ### Required Hooks
 Event subscriptions are natively mapped to:
-- `FileIOCreate`
+- `FileIOCreate`: Explicitly tracks pure creation of entirely new disk files utilizing bounded metrics directly validating `CREATE_NEW`, `SUPERSEDE`, and `CREATE_ALWAYS` dispositions mapped directly to `FileSystemEventType.Create` to reduce false positives mapping passive opens.
 - `FileIOReadWrite`
 - `FileIODirEnum`
 - `FileIOInfo` (mapped for Renames & Deletes)

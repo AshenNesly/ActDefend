@@ -23,6 +23,10 @@ internal sealed class ProcessState
     // Store events in chronological order
     private readonly List<FileSystemEvent> _events = new(1024);
 
+    // Track recently created files to distinguish Pre-Existing modification vs New File modification.
+    // Use an LRU mechanism or capped bound.
+    private readonly HashSet<string> _newlyCreatedFiles = new(StringComparer.OrdinalIgnoreCase);
+
     public DateTimeOffset LastEventUtc { get; private set; }
 
     public ProcessState(int processId, string processName, string? processPath)
@@ -41,7 +45,20 @@ internal sealed class ProcessState
     {
         lock (_syncLock)
         {
-            _events.Add(evt);
+            if (evt.EventType == FileSystemEventType.Create)
+            {
+                _newlyCreatedFiles.Add(evt.FilePath);
+                // Safety bound to prevent memory leak from unconstrained installers.
+                if (_newlyCreatedFiles.Count > 15000)
+                {
+                    _newlyCreatedFiles.Clear();
+                }
+            }
+            else
+            {
+                _events.Add(evt);
+            }
+
             var now = evt.Timestamp;
             LastEventUtc = now > LastEventUtc ? now : LastEventUtc;
             
@@ -49,6 +66,17 @@ internal sealed class ProcessState
             // taking everything older than the context window.
             var cutoff = now - contextWindow;
             _events.RemoveAll(e => e.Timestamp < cutoff);
+        }
+    }
+
+    /// <summary>
+    /// Checks if a file was inherently created by this process recently.
+    /// </summary>
+    public bool IsNewlyCreated(string filePath)
+    {
+        lock (_syncLock)
+        {
+            return _newlyCreatedFiles.Contains(filePath);
         }
     }
 

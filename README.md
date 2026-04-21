@@ -96,27 +96,3 @@ ActDefend.slnx
         ├── Logging.md             — Serilog logging setup
         └── EndToEndValidation.md  — Integration test approach
 ```
-
-## Configuration
-
-All tunable parameters live in `src/Detector.App/appsettings.json` under the `"ActDefend"` key.
-No source recompilation is required for threshold or weight changes.
-See [docs/configuration.md](docs/configuration.md) for the full reference.
-
-## Current Status
-
-All pipeline phases are complete and active:
-- ETW collection, feature extraction, Stage 1 scoring, Stage 2 entropy confirmation
-- WPF dashboard with live counters, severity-coloured alert feed, close-to-tray
-- SQLite alert persistence (alerts survive restarts)
-- Safe simulator for repeatable detection testing
-- 42 passing unit tests; elevated integration tests
-
-See [docs/status.md](docs/status.md) for the detailed phase-by-phase status.
-
-## Known Limitations
-
-- Default Stage 1 thresholds may produce false positives under heavy benign write workloads (large IDE builds, backup tools). See [docs/false-positive-reduction.md](docs/false-positive-reduction.md).
-- Trusted-process exclusions are loaded from `appsettings.json` into memory at startup; additions at runtime are not persisted to disk.
-- ETW rename events capture only the source path; the renamed-to filename is unavailable. Stage 2 works around this by probing common ransomware extensions (`.locked`, `.encrypted`, etc.).
-- Full process executable path (`ProcessPath`) is not resolved — ETW `FileIO` events do not carry it, and a full path lookup per event was excluded for performance.

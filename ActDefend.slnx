@@ -10,6 +10,7 @@
     <Project Path="src/Detector.Logging/Detector.Logging.csproj" />
     <Project Path="src/Detector.Simulator/Detector.Simulator.csproj" />
     <Project Path="src/Detector.Storage/Detector.Storage.csproj" />
+    <Project Path="src/Detector.Evaluation/Detector.Evaluation.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Detector.IntegrationTests/Detector.IntegrationTests.csproj" />

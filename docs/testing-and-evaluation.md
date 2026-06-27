@@ -16,13 +16,42 @@
 
 ### Integration Tests (`tests/Detector.IntegrationTests`)
 
-End-to-end tests that require Administrator elevation. Auto-skip when run without elevation.
+## End-to-End Validation
+For automated testing, the integration tests (`EndToEndValidationTests`) spin up a headless version of the pipeline using an in-memory test database and run the `ActDefend.Simulator`.
+This ensures that the ETW collector, Stage 1 scorer, Stage 2 entropy checker, and Alert Repository all work together harmoniously without requiring the WPF dashboard to be open.
 
-`EndToEndValidationTests.cs` spins up a headless pipeline using `Host.CreateDefaultBuilder`:
-- ETW collector (`Detector.Collector`)
-- Feature extractor (`Detector.Features`)
-- Stage 1 + Stage 2 scoring (`Detector.Detection`, `Detector.Entropy`)
-- SQLite alert storage (`Detector.Storage`)
+## Benchmark & Evaluation Runner
+A dedicated evaluation tool (`Detector.Evaluation`) is provided for academic benchmarking and structured metric collection. It is located at `src/Detector.Evaluation`.
+
+### Purpose
+The evaluation runner allows for repeatable, controlled testing of ActDefend's detection latency, accuracy, false positive rate, CPU usage, and memory usage.
+
+### How to Run
+The evaluation requires ETW collection, which means the command prompt or IDE must be run as **Administrator**.
+To run all predefined scenarios across all four configuration profiles (Balanced, Sensitive, LowResource, Conservative):
+```bash
+dotnet run --project src/Detector.Evaluation -- --all
+```
+You can also run a specific profile:
+```bash
+dotnet run --project src/Detector.Evaluation -- --profile Sensitive
+```
+
+### Metrics Recorded
+For each scenario, the runner captures:
+* **Latency:** Time from simulator workload start to the first confirmed detection alert.
+* **Success Rate:** Whether the expected alert was successfully triggered.
+* **CPU and Memory:** Periodic sampling of the pipeline's performance footprint.
+* **Evidence Data:** Suspicion scores, entropy values, and flagged high-entropy file counts.
+
+### Output
+The runner outputs results in an isolated timestamped directory (e.g., `evaluation-output/20261102_143000/`) to avoid corrupting the normal application database. The output includes:
+* `ProfileName/results.csv`: A flattened CSV for the specific profile.
+* `ProfileName/results.json`: Full detailed evaluation data for the specific profile.
+* `ProfileName/summary.md`: An aggregated markdown report detailing success rates, false positives, and performance averages for the specific profile.
+* `profile-comparison.md/csv/json`: A consolidated report comparing the performance trade-offs across all executed profiles.
+
+**Note:** The evaluation runner uses the exact same configuration definitions (`ConfigurationProfileHelper.cs`) as the GUI Settings/Tuning dashboard, guaranteeing that evaluation results perfectly mirror product behaviour.
 
 The simulator is invoked against a dedicated test workspace. Tests assert that:
 - Ransomware workloads produce confirmed alerts saved to SQLite.

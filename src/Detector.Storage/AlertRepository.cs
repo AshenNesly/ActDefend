@@ -61,6 +61,34 @@ internal sealed class AlertRepository : IAlertRepository
                 CREATE INDEX IF NOT EXISTS IDX_Alerts_Timestamp ON Alerts(Timestamp DESC);
             ";
             command.ExecuteNonQuery();
+
+            // Schema Migrations (Add new evidence columns gracefully)
+            string[] migrations = [
+                "ALTER TABLE Alerts ADD COLUMN SuspicionScore REAL DEFAULT 0;",
+                "ALTER TABLE Alerts ADD COLUMN Stage1TopReasons TEXT DEFAULT '';",
+                "ALTER TABLE Alerts ADD COLUMN Stage1ThresholdUsed REAL DEFAULT 0;",
+                "ALTER TABLE Alerts ADD COLUMN FirstSuspiciousAtUtc TEXT;",
+                "ALTER TABLE Alerts ADD COLUMN ConfirmedAtUtc TEXT;",
+                "ALTER TABLE Alerts ADD COLUMN DetectionLatencyMs REAL DEFAULT 0;",
+                "ALTER TABLE Alerts ADD COLUMN HighEntropyFileCount INTEGER DEFAULT 0;",
+                "ALTER TABLE Alerts ADD COLUMN EntropyValuesJson TEXT DEFAULT '';",
+                "ALTER TABLE Alerts ADD COLUMN Stage2EntropyThresholdUsed REAL DEFAULT 0;",
+                "ALTER TABLE Alerts ADD COLUMN Stage2MinFilesUsed INTEGER DEFAULT 0;"
+            ];
+
+            foreach (var mig in migrations)
+            {
+                try
+                {
+                    using var migCmd = connection.CreateCommand();
+                    migCmd.CommandText = mig;
+                    migCmd.ExecuteNonQuery();
+                }
+                catch (SqliteException)
+                {
+                    // Ignore if column already exists
+                }
+            }
         }
     }
 
@@ -77,11 +105,17 @@ internal sealed class AlertRepository : IAlertRepository
                 INSERT INTO Alerts (
                     AlertId, Timestamp, ProcessId, ProcessName, ProcessPath, 
                     Severity, AffectedFileCount, Summary, IsAcknowledged,
-                    Stage1Score, Stage2Entropy, CorrelationId
+                    Stage1Score, Stage2Entropy, CorrelationId,
+                    SuspicionScore, Stage1TopReasons, Stage1ThresholdUsed,
+                    FirstSuspiciousAtUtc, ConfirmedAtUtc, DetectionLatencyMs,
+                    HighEntropyFileCount, EntropyValuesJson, Stage2EntropyThresholdUsed, Stage2MinFilesUsed
                 ) VALUES (
                     $AlertId, $Timestamp, $ProcessId, $ProcessName, $ProcessPath, 
                     $Severity, $AffectedFileCount, $Summary, $IsAcknowledged,
-                    $Stage1Score, $Stage2Entropy, $CorrelationId
+                    $Stage1Score, $Stage2Entropy, $CorrelationId,
+                    $SuspicionScore, $Stage1TopReasons, $Stage1ThresholdUsed,
+                    $FirstSuspiciousAtUtc, $ConfirmedAtUtc, $DetectionLatencyMs,
+                    $HighEntropyFileCount, $EntropyValuesJson, $Stage2EntropyThresholdUsed, $Stage2MinFilesUsed
                 )
                 ON CONFLICT(AlertId) DO UPDATE SET 
                     IsAcknowledged = excluded.IsAcknowledged;
@@ -99,6 +133,17 @@ internal sealed class AlertRepository : IAlertRepository
             command.Parameters.AddWithValue("$Stage1Score", alert.Stage1Result.Score);
             command.Parameters.AddWithValue("$Stage2Entropy", alert.Stage2Result.AverageEntropy);
             command.Parameters.AddWithValue("$CorrelationId", alert.CorrelationId.ToString());
+            
+            command.Parameters.AddWithValue("$SuspicionScore", alert.SuspicionScore);
+            command.Parameters.AddWithValue("$Stage1TopReasons", alert.Stage1TopReasons);
+            command.Parameters.AddWithValue("$Stage1ThresholdUsed", alert.Stage1ThresholdUsed);
+            command.Parameters.AddWithValue("$FirstSuspiciousAtUtc", alert.FirstSuspiciousAtUtc?.ToString("O") ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("$ConfirmedAtUtc", alert.ConfirmedAtUtc.ToString("O"));
+            command.Parameters.AddWithValue("$DetectionLatencyMs", alert.DetectionLatencyMs);
+            command.Parameters.AddWithValue("$HighEntropyFileCount", alert.HighEntropyFileCount);
+            command.Parameters.AddWithValue("$EntropyValuesJson", alert.EntropyValuesJson);
+            command.Parameters.AddWithValue("$Stage2EntropyThresholdUsed", alert.Stage2EntropyThresholdUsed);
+            command.Parameters.AddWithValue("$Stage2MinFilesUsed", alert.Stage2MinFilesUsed);
 
             command.ExecuteNonQuery();
         }
@@ -156,6 +201,38 @@ internal sealed class AlertRepository : IAlertRepository
                 // Rehydrate the core attributes used by the UI (full payload tracing remains complex so we rebuild the summary views).
                 // In a massive app we'd map full json serialization per column.
                 // For this lightweight desktop, we reconstruct the essential Data grid components natively.
+                // Handle potential missing columns for backwards compatibility gracefully
+                double suspicionScore = 0;
+                string topReasons = "";
+                double threshold1 = 0;
+                DateTimeOffset? firstSus = null;
+                DateTimeOffset confirmedAt = DateTimeOffset.MinValue;
+                double latency = 0;
+                int highEntropyCount = 0;
+                string entropyJson = "";
+                double threshold2 = 0;
+                int minFiles = 0;
+
+                try
+                {
+                    suspicionScore = reader.GetDouble(reader.GetOrdinal("SuspicionScore"));
+                    topReasons = reader.GetString(reader.GetOrdinal("Stage1TopReasons"));
+                    threshold1 = reader.GetDouble(reader.GetOrdinal("Stage1ThresholdUsed"));
+                    if (!reader.IsDBNull(reader.GetOrdinal("FirstSuspiciousAtUtc")))
+                        firstSus = DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("FirstSuspiciousAtUtc")));
+                    if (!reader.IsDBNull(reader.GetOrdinal("ConfirmedAtUtc")))
+                        confirmedAt = DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("ConfirmedAtUtc")));
+                    latency = reader.GetDouble(reader.GetOrdinal("DetectionLatencyMs"));
+                    highEntropyCount = reader.GetInt32(reader.GetOrdinal("HighEntropyFileCount"));
+                    entropyJson = reader.GetString(reader.GetOrdinal("EntropyValuesJson"));
+                    threshold2 = reader.GetDouble(reader.GetOrdinal("Stage2EntropyThresholdUsed"));
+                    minFiles = reader.GetInt32(reader.GetOrdinal("Stage2MinFilesUsed"));
+                }
+                catch (IndexOutOfRangeException)
+                {
+                    // If columns don't exist in older databases (and mig failed for some reason), ignore.
+                }
+
                 alerts.Add(new DetectionAlert
                 {
                     AlertId = Guid.Parse(reader.GetString(reader.GetOrdinal("AlertId"))),
@@ -169,6 +246,17 @@ internal sealed class AlertRepository : IAlertRepository
                     IsAcknowledged = reader.GetInt32(reader.GetOrdinal("IsAcknowledged")) != 0,
                     CorrelationId = Guid.Parse(reader.GetString(reader.GetOrdinal("CorrelationId"))),
                     
+                    SuspicionScore = suspicionScore,
+                    Stage1TopReasons = topReasons,
+                    Stage1ThresholdUsed = threshold1,
+                    FirstSuspiciousAtUtc = firstSus,
+                    ConfirmedAtUtc = confirmedAt,
+                    DetectionLatencyMs = latency,
+                    HighEntropyFileCount = highEntropyCount,
+                    EntropyValuesJson = entropyJson,
+                    Stage2EntropyThresholdUsed = threshold2,
+                    Stage2MinFilesUsed = minFiles,
+
                     // The UI primarily reads the Stage properties inside the Alert directly so we mock a subset 
                     // since we aren't joining heavy JSON strings in this phase.
                     Stage1Result = new ScoringResult 
@@ -176,13 +264,15 @@ internal sealed class AlertRepository : IAlertRepository
                         Timestamp = DateTimeOffset.UtcNow, 
                         Score = reader.GetDouble(reader.GetOrdinal("Stage1Score")), 
                         IsSuspicious = true,
+                        SuspicionThresholdUsed = threshold1,
                         Snapshot = new FeatureSnapshot { Timestamp = DateTimeOffset.UtcNow, ProcessId = 0, ProcessName = "" }
                     },
                     Stage2Result = new EntropyResult 
                     { 
                         Timestamp = DateTimeOffset.UtcNow, 
                         AverageEntropy = reader.GetDouble(reader.GetOrdinal("Stage2Entropy")),
-                        ProcessId = 0, ProcessName = "", IsConfirmed = true, TriggerResult = null!
+                        ProcessId = 0, ProcessName = "", IsConfirmed = true, TriggerResult = null!,
+                        EntropyThresholdUsed = threshold2, MinFilesUsed = minFiles
                     }
                 });
             }

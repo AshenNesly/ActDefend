@@ -58,6 +58,10 @@ This explanation is stored in `ScoringResult.Explanation` and appears in:
 - The structured JSON log at `Information` level.
 - The `DetectionAlert.Summary` field displayed in the GUI alert feed.
 
+The **top-3 feature names** (by contribution points, comma-separated) are also captured in `DetectionAlert.Stage1TopReasons` for the evidence summary shown beneath each alert row in the dashboard.
+
+The **suspicion threshold value** used at detection time is stored in both `ScoringResult.SuspicionThresholdUsed` and `DetectionAlert.Stage1ThresholdUsed`, so the stored evidence can be fully explained even if configuration changes later.
+
 ---
 
 ## Severity Mapping

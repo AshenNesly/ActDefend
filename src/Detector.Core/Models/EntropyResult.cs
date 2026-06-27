@@ -28,6 +28,12 @@ public sealed record EntropyResult
     /// <summary>Number of files whose entropy exceeded the configured threshold.</summary>
     public int HighEntropyFileCount { get; init; }
 
+    /// <summary>The threshold used to determine if a file has high entropy.</summary>
+    public required double EntropyThresholdUsed { get; init; }
+
+    /// <summary>The minimum number of high entropy files required to confirm an alert.</summary>
+    public required int MinFilesUsed { get; init; }
+
     /// <summary>Human-readable explanation of the Stage 2 decision.</summary>
     public string Explanation { get; init; } = string.Empty;
 

@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
 using ActDefend.Core.Interfaces;
 using ActDefend.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -25,6 +27,8 @@ public sealed class DetectionOrchestrator
     private readonly IAlertPublisher     _publisher;
     private readonly IAlertRepository    _alerts;
     private readonly ITrustedProcessRepository _trusted;
+
+    private readonly ConcurrentDictionary<int, DateTimeOffset> _firstSuspiciousTracker = new();
 
     public DetectionOrchestrator(
         ILogger<DetectionOrchestrator> logger,
@@ -66,6 +70,9 @@ public sealed class DetectionOrchestrator
             if (!result.IsSuspicious)
                 continue;
 
+            // Track the earliest suspicious timestamp for this process to calculate detection latency later.
+            var firstSuspiciousAt = _firstSuspiciousTracker.GetOrAdd(snapshot.ProcessId, _ => DateTimeOffset.UtcNow);
+
             _logger.LogInformation(
                 "Stage 1 suspicion — PID={Pid} ({Name}) Score={Score:F1} [{Reason}]",
                 snapshot.ProcessId, snapshot.ProcessName, result.Score, result.Explanation);
@@ -89,20 +96,21 @@ public sealed class DetectionOrchestrator
             }
 
             // Both stages confirm — raise alert.
-            var alert = BuildAlert(result, entropyResult);
+            _firstSuspiciousTracker.TryGetValue(snapshot.ProcessId, out var firstSusTime);
+            var alert = BuildAlert(result, entropyResult, firstSusTime);
 
             await _alerts.SaveAsync(alert, cancellationToken).ConfigureAwait(false);
             _publisher.Publish(alert);
 
             _logger.LogWarning(
-                "DETECTION ALERT — PID={Pid} ({Name}) Severity={Severity} AlertId={Id}",
-                alert.ProcessId, alert.ProcessName, alert.Severity, alert.AlertId);
+                "DETECTION ALERT — PID={Pid} ({Name}) Severity={Severity} AlertId={Id} LatencyMs={Latency} HighEntropyFiles={HEF}",
+                alert.ProcessId, alert.ProcessName, alert.Severity, alert.AlertId, alert.DetectionLatencyMs, alert.HighEntropyFileCount);
         }
 
         _extractor.ExpireInactiveState();
     }
 
-    private static DetectionAlert BuildAlert(ScoringResult s1, EntropyResult s2)
+    private static DetectionAlert BuildAlert(ScoringResult s1, EntropyResult s2, DateTimeOffset firstSusTime)
     {
         var severity = s1.Score switch
         {
@@ -112,10 +120,21 @@ public sealed class DetectionOrchestrator
             _     => AlertSeverity.Low
         };
 
+        var confirmedAt = DateTimeOffset.UtcNow;
+        var latencyMs = firstSusTime != default ? (confirmedAt - firstSusTime).TotalMilliseconds : 0;
+        
+        var topReasons = string.Join(", ", s1.FeatureContributions
+            .Where(c => c.Value > 0)
+            .OrderByDescending(c => c.Value)
+            .Take(3)
+            .Select(c => c.Key));
+
+        var entropyValuesJson = JsonSerializer.Serialize(s2.Samples.Select(s => new { s.FilePath, s.ShannonEntropy, s.ExceedsThreshold }));
+
         return new DetectionAlert
         {
             AlertId       = Guid.NewGuid(),
-            Timestamp     = DateTimeOffset.UtcNow,
+            Timestamp     = confirmedAt,
             ProcessId     = s1.Snapshot.ProcessId,
             ProcessName   = s1.Snapshot.ProcessName,
             ProcessPath   = s1.Snapshot.ProcessPath,
@@ -125,7 +144,20 @@ public sealed class DetectionOrchestrator
             AffectedFileCount = s1.Snapshot.UniqueFilesWritten,
             Summary       = $"{s1.Snapshot.ProcessName} (PID {s1.Snapshot.ProcessId}) — " +
                             $"S1={s1.Score:F1} S2=confirmed AvgEntropy={s2.AverageEntropy:F2}",
-            CorrelationId = Guid.NewGuid()
+            CorrelationId = Guid.NewGuid(),
+            IsAcknowledged = false,
+            
+            // Rich evidence
+            SuspicionScore = s1.Score,
+            Stage1TopReasons = topReasons,
+            Stage1ThresholdUsed = s1.SuspicionThresholdUsed,
+            FirstSuspiciousAtUtc = firstSusTime != default ? firstSusTime : null,
+            ConfirmedAtUtc = confirmedAt,
+            DetectionLatencyMs = latencyMs,
+            HighEntropyFileCount = s2.HighEntropyFileCount,
+            EntropyValuesJson = entropyValuesJson,
+            Stage2EntropyThresholdUsed = s2.EntropyThresholdUsed,
+            Stage2MinFilesUsed = s2.MinFilesUsed
         };
     }
 }

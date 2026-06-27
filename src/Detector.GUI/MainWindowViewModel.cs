@@ -364,6 +364,17 @@ public sealed class AlertRowViewModel
     public string TimestampText => _alert.Timestamp.LocalDateTime.ToString("HH:mm:ss");
     public string SeverityLabel => _alert.Severity.ToString().ToUpperInvariant();
     public Brush  SeverityBrush => MainWindowViewModel.BrushForSeverity(_alert.Severity);
+
+    public string EvidenceSummary
+    {
+        get
+        {
+            var latency = _alert.DetectionLatencyMs > 0 ? $"{_alert.DetectionLatencyMs:F0}ms" : "N/A";
+            var hef = _alert.HighEntropyFileCount;
+            var reasons = string.IsNullOrEmpty(_alert.Stage1TopReasons) ? "N/A" : _alert.Stage1TopReasons;
+            return $"Latency={latency} | HighEntropyFiles={hef} | Reasons={reasons}";
+        }
+    }
 }
 
 /// <summary>

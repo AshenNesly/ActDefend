@@ -308,12 +308,12 @@ public sealed class EntropySamplingEngineTests
 
         return new ScoringResult
         {
-            Timestamp = DateTimeOffset.UtcNow,
-            Snapshot = snapshot,
-            Score = 100.0,
-            IsSuspicious = true,
-            Explanation = "Test triggering"
+            Timestamp              = DateTimeOffset.UtcNow,
+            Score                  = 100,
+            IsSuspicious           = true,
+            SuspicionThresholdUsed = 60,
+            Snapshot               = snapshot,
+            Explanation            = "Test triggering"
         };
     }
 }
-

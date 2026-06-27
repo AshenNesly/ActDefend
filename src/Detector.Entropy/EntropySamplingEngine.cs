@@ -116,7 +116,9 @@ public sealed class EntropySamplingEngine : IEntropyEngine
         return finalResult with
         {
             AverageEntropy = averageEntropy,
-            HighEntropyFileCount = highEntropyCount
+            HighEntropyFileCount = highEntropyCount,
+            EntropyThresholdUsed = _options.EntropyThreshold,
+            MinFilesUsed = _options.ConfirmationMinFiles
         };
     }
 
@@ -236,6 +238,8 @@ public sealed class EntropySamplingEngine : IEntropyEngine
             Samples = samples,
             AverageEntropy = 0,
             HighEntropyFileCount = 0,
+            EntropyThresholdUsed = 0, // Gets replaced via 'with' if applicable
+            MinFilesUsed = 0,
             Explanation = reason,
             TriggerResult = trigger
         };

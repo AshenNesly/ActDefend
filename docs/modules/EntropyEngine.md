@@ -55,6 +55,22 @@ When the engine confirms that `highEntropyCount >= ConfirmationMinFiles` (defaul
 
 If Stage 2 finds no readable files at all (all paths missing and no extension variant found), it returns `IsConfirmed = false` with a diagnostic explanation in the result, logged at `Debug` level.
 
+### Evidence Capture
+
+On every successful confirmation, Stage 2 captures the following evidence in the `EntropyResult` for traceability:
+
+| Field | Description |
+|---|---|
+| `HighEntropyFileCount` | Number of files whose entropy exceeded `EntropyThreshold` |
+| `AverageEntropy` | Mean Shannon entropy across all successfully sampled files |
+| `EntropyThresholdUsed` | The threshold value used at the time of detection |
+| `MinFilesUsed` | The minimum-files confirmation threshold used at the time of detection |
+| `Samples` | List of `FileSample` objects (path, bytes read, entropy, exceeded flag) |
+
+All of these are propagated to `DetectionAlert` and persisted in SQLite. `EntropyValuesJson` in the database stores a JSON snapshot of `[{FilePath, ShannonEntropy, ExceedsThreshold}]` for each sampled file.
+
+> **Privacy:** Only file paths and computed entropy values are stored — no raw file bytes or content are ever written to disk or logs.
+
 ## Configuration Reference
 
 | Key | Default | Description |

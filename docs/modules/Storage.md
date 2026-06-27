@@ -30,18 +30,34 @@ CREATE TABLE IF NOT EXISTS Alerts (
     IsAcknowledged   INTEGER NOT NULL DEFAULT 0,  -- 0=false, 1=true
     Stage1Score      REAL NOT NULL,
     Stage2Entropy    REAL NOT NULL,
-    CorrelationId    TEXT NOT NULL
+    CorrelationId    TEXT NOT NULL,
+
+    -- Rich Evidence Columns (added via migration for backwards compatibility)
+    SuspicionScore          REAL DEFAULT 0,
+    Stage1TopReasons        TEXT DEFAULT '',  -- comma-separated top-3 feature names
+    Stage1ThresholdUsed     REAL DEFAULT 0,
+    FirstSuspiciousAtUtc    TEXT,            -- nullable ISO 8601
+    ConfirmedAtUtc          TEXT,            -- ISO 8601
+    DetectionLatencyMs      REAL DEFAULT 0,  -- ms from first suspicion to Stage 2 confirmation
+    HighEntropyFileCount    INTEGER DEFAULT 0,
+    EntropyValuesJson       TEXT DEFAULT '', -- JSON array of {FilePath, ShannonEntropy, ExceedsThreshold}
+    Stage2EntropyThresholdUsed REAL DEFAULT 0,
+    Stage2MinFilesUsed      INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS IDX_Alerts_Timestamp ON Alerts(Timestamp DESC);
 ```
+
+> **Schema Migration:** The evidence columns are added to existing databases via `ALTER TABLE ... ADD COLUMN` at startup. Each migration is wrapped in a `try-catch(SqliteException)` so columns already present in a fresh database are silently skipped. Existing legacy alert rows receive `0`/empty defaults for the new columns.
+>
+> **Privacy:** `EntropyValuesJson` stores only file paths and entropy values — no raw bytes or file contents are ever captured.
 
 ### Thread Safety
 
 A `Lock` object serialises all database access. A new `SqliteConnection` is opened per operation (not held open across calls). This is safe and correct for a low-frequency desktop application where alerts arrive at most a few times per minute.
 
-### Rehydration Limitation
+### Rehydration
 
-When alerts are read back from SQLite (`GetAllAsync`, `GetRecentAsync`), the `Stage1Result` and `Stage2Result` fields are partially reconstructed: only the scalar values stored in the schema (`Stage1Score`, `Stage2Entropy`) are restored. The full `ScoringResult` and `EntropyResult` object graphs (including feature contributions and file samples) are not persisted — the UI only needs the summary values for display.
+When alerts are read back from SQLite (`GetAllAsync`, `GetRecentAsync`), all evidence columns are rehydrated into the `DetectionAlert` record. The `Stage1Result` and `Stage2Result` sub-objects are partially reconstructed from the stored scalar columns — the full in-memory object graphs (including all feature contributions) are not persisted since the UI only requires summary values for display.
 
 ### Operations
 

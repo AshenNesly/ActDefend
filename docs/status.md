@@ -24,6 +24,7 @@ All planned pipeline phases are complete. The system is fully operational end-to
 | **Phase 8e** | False Positive Reduction | ✅ Complete | Added `PreExistingModifyRate` feature (25-pt weight) to distinguish pre-existing file modification from new-file creation. `WriteReadRatio` set to 0.0 when reads = 0 (penalises pure downloaders less). Stage 2 skips known high-entropy-but-benign extensions (`.dll`, `.exe`, `.zip`, `.png`, etc.). 42 tests passing. |
 | **Phase 9** | Persistent Allowlist | ✅ Complete | Extended `TrustedProcessRepository` to persist user-added exceptions to the SQLite `TrustedProcesses` table. Dashboard now includes an Allowlist tab. |
 | **Phase 9b** | Allowlist UX & Tray Exit | ✅ Complete | Fixed allowlist removal flow (confirmation dialog + safe reload). Redesigned Allowlist tab with header, warning, search filter, reason field, Protected badge, empty state. Improved "Trust" button with green/teal style and tooltip. Added right-click tray context menu: Open Dashboard / Exit ActDefend. Graceful host shutdown via `IHostApplicationLifetime.StopApplication()`. Fixed `ShutdownMode` to `OnExplicitShutdown`. 50 tests passing. |
+| **Phase 9c** | Alert Evidence | ✅ Complete | Extended `DetectionAlert` with richer evidence (SuspicionScore, Thresholds, Latency, HighEntropyFileCount, JSON samples). Safely migrated SQLite schema with fallback read-backs. Exposed evidence summary on Recent Alerts UI. 50 tests passing. |
 ---
 
 ## Known Remaining Gaps

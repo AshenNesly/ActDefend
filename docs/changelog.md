@@ -4,6 +4,66 @@ Changes are recorded per development phase. Newest first.
 
 ---
 
+## Phase 9c — Alert Evidence
+
+**Goal:** Each confirmed detection alert should store richer evidence so the final report can clearly explain why the alert was generated, how confident the system was, and how long detection took.
+
+### Changes
+
+**`DetectionAlert` (Core Model)**
+- Added 10 new `init`-only evidence properties:
+  - `SuspicionScore` — the numeric Stage 1 score at the time of confirmation.
+  - `Stage1TopReasons` — comma-separated names of the top-3 scoring features.
+  - `Stage1ThresholdUsed` — the suspicion threshold configured at detection time.
+  - `FirstSuspiciousAtUtc` — timestamp when the process first crossed the Stage 1 threshold.
+  - `ConfirmedAtUtc` — timestamp when Stage 2 confirmed the detection.
+  - `DetectionLatencyMs` — elapsed time from first suspicion to confirmation.
+  - `HighEntropyFileCount` — number of files exceeding the entropy threshold.
+  - `EntropyValuesJson` — JSON array of `{FilePath, ShannonEntropy, ExceedsThreshold}` per sampled file.
+  - `Stage2EntropyThresholdUsed` — the entropy threshold configured at detection time.
+  - `Stage2MinFilesUsed` — the minimum-file confirmation count configured at detection time.
+
+**`ScoringResult` (Core Model)**
+- Added `SuspicionThresholdUsed` — records the Stage 1 threshold in effect at scoring time.
+
+**`EntropyResult` (Core Model)**
+- Added `EntropyThresholdUsed` and `MinFilesUsed` — records Stage 2 thresholds in effect at sampling time.
+
+**`LightweightScoringEngine`**
+- Populates `SuspicionThresholdUsed` from `Stage1Options.SuspicionThreshold` in every returned `ScoringResult`.
+
+**`EntropySamplingEngine`**
+- Populates `EntropyThresholdUsed` and `MinFilesUsed` from config in the `with`-expression update path.
+
+**`DetectionOrchestrator`**
+- Introduced `ConcurrentDictionary<int, DateTimeOffset> _firstSuspiciousTracker` to record the first tick a process becomes suspicious.
+- `BuildAlert()` extended to accept `firstSusTime`, compute `DetectionLatencyMs`, extract top-3 reason names, and serialize `EntropyValuesJson`.
+- Warning log now includes `LatencyMs` and `HighEntropyFiles` structured fields.
+
+**`AlertRepository`**
+- Schema gains 10 new evidence columns, all with safe default values.
+- Startup migration applies `ALTER TABLE ... ADD COLUMN` for each new column inside `try-catch(SqliteException)` — existing databases are silently upgraded; rows created before this release receive `0`/empty defaults.
+- `SaveAsync` inserts all 10 new columns.
+- Read-back (`GetAlertsInternalAsync`) rehydrates all evidence fields with graceful `try-catch(IndexOutOfRangeException)` for forward-compatibility.
+
+**`AlertRowViewModel` / `MainWindowViewModel`**
+- Added `EvidenceSummary` computed property: `"Latency={N}ms | HighEntropyFiles={N} | Reasons={...}"`.
+
+**`MainWindow.xaml`**
+- Added a `TextBlock` bound to `EvidenceSummary` beneath the alert summary line in the Recent Alerts item template (muted grey, 10 px font).
+
+**Tests**
+- `EntropySamplingEngineTests` mock `ScoringResult` updated to set `SuspicionThresholdUsed`.
+- All 50 tests pass.
+
+---
+
+## Phase 9b — Allowlist UX & Tray Exit
+
+(see previous changelog entry)
+
+---
+
 ## Phase 8e — False Positive Reduction
 
 **Problem:** After Phase 8d activated the full detection pipeline, heavy benign workloads (software installers, `npm install`, unzippers, IDE builds) occasionally triggered false positive alerts.

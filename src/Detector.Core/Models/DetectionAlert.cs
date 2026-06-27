@@ -42,6 +42,38 @@ public sealed record DetectionAlert
 
     /// <summary>True if the user has acknowledged/dismissed this alert.</summary>
     public bool IsAcknowledged { get; set; }
+
+    // ── Rich Evidence Fields ──────────────────────────────────────────────────
+
+    /// <summary>Stage 1 suspicion score [0-100].</summary>
+    public double SuspicionScore { get; init; }
+
+    /// <summary>Comma-separated list of the top contributing Stage 1 reasons.</summary>
+    public string Stage1TopReasons { get; init; } = string.Empty;
+
+    /// <summary>The threshold value Stage 1 used for this detection.</summary>
+    public double Stage1ThresholdUsed { get; init; }
+
+    /// <summary>Timestamp when the process first crossed the Stage 1 threshold.</summary>
+    public DateTimeOffset? FirstSuspiciousAtUtc { get; init; }
+
+    /// <summary>Timestamp when Stage 2 confirmed the detection.</summary>
+    public DateTimeOffset ConfirmedAtUtc { get; init; }
+
+    /// <summary>Time elapsed from first suspicion to confirmation.</summary>
+    public double DetectionLatencyMs { get; init; }
+
+    /// <summary>Number of files that exceeded the entropy threshold.</summary>
+    public int HighEntropyFileCount { get; init; }
+
+    /// <summary>JSON serialized summary of sampled files and their entropy values.</summary>
+    public string EntropyValuesJson { get; init; } = string.Empty;
+
+    /// <summary>The entropy threshold Stage 2 used.</summary>
+    public double Stage2EntropyThresholdUsed { get; init; }
+
+    /// <summary>The minimum number of high-entropy files Stage 2 required for confirmation.</summary>
+    public int Stage2MinFilesUsed { get; init; }
 }
 
 /// <summary>Severity levels for detection alerts.</summary>

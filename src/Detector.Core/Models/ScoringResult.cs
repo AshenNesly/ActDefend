@@ -22,6 +22,9 @@ public sealed record ScoringResult
     /// <summary>True when Score meets or exceeds the configured suspicion threshold.</summary>
     public required bool IsSuspicious { get; init; }
 
+    /// <summary>The threshold used to determine if the process is suspicious.</summary>
+    public required double SuspicionThresholdUsed { get; init; }
+
     /// <summary>
     /// Per-feature contribution breakdown.
     /// Key = feature name, Value = score contribution (0–100 partial).

@@ -88,6 +88,7 @@ public sealed class LightweightScoringEngine : IScoringEngine
             Snapshot      = snapshot,
             Score         = totalScore,
             IsSuspicious  = isSuspicious,
+            SuspicionThresholdUsed = _options.SuspicionThreshold,
             Explanation   = BuildExplanation(totalScore, isSuspicious, contributions),
             FeatureContributions = contributions
         };

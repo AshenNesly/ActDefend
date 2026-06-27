@@ -1,27 +1,44 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using ActDefend.Core.Interfaces;
 using Hardcodet.Wpf.TaskbarNotification;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace ActDefend.GUI;
 
 public partial class MainWindow : Window
 {
-    private readonly IAlertPublisher _publisher;
+    private readonly IAlertPublisher           _publisher;
+    private readonly IHostApplicationLifetime  _appLifetime;
 
-    public MainWindow(IMonitoringStatus status, IAlertPublisher publisher, IAlertRepository alerts)
+    /// <summary>
+    /// When true the OnClosing handler allows the window to actually close
+    /// (triggered by "Exit ActDefend" from the tray menu).
+    /// When false, closing the window hides it to tray instead.
+    /// </summary>
+    private bool _isExiting;
+
+    public MainWindow(
+        IMonitoringStatus         status,
+        IAlertPublisher           publisher,
+        IAlertRepository          alerts,
+        ITrustedProcessRepository trustedProcesses,
+        IHostApplicationLifetime  appLifetime)
     {
         InitializeComponent();
-        
-        _publisher = publisher;
+
+        _publisher   = publisher;
+        _appLifetime = appLifetime;
 
         // Hook MVVM Context exclusively
-        DataContext = new MainWindowViewModel(status, publisher, alerts);
+        DataContext = new MainWindowViewModel(status, publisher, alerts, trustedProcesses);
 
-        // Trap publisher native warnings routing them up into the Windows Action Center via Tray overrides
+        // Trap publisher alerts and route them to tray balloon notifications
         _publisher.AlertRaised += OnAlertRaised;
     }
+
+    // ── Tray balloon notifications ────────────────────────────────────────────
 
     private void OnAlertRaised(object? sender, Core.Models.DetectionAlert alert)
     {
@@ -42,21 +59,93 @@ public partial class MainWindow : Window
         });
     }
 
-    private void TaskbarIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
+    // ── Tray context menu handlers ────────────────────────────────────────────
+
+    /// <summary>
+    /// Tray menu "Open Dashboard" — restores the window from tray.
+    /// Also wired to double-click on the tray icon.
+    /// </summary>
+    private void TrayMenuOpenDashboard_Click(object sender, RoutedEventArgs e)
     {
         Show();
         WindowState = WindowState.Normal;
         Activate();
     }
 
+    /// <summary>
+    /// Tray right-click — explicitly shows the context menu at the mouse cursor
+    /// to fix WPF ContextMenu placement issues.
+    /// </summary>
+    private void TaskbarIcon_TrayRightMouseUp(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+        
+        var openItem = new MenuItem { Header = "Open Dashboard", FontWeight = FontWeights.Bold };
+        openItem.Click += TrayMenuOpenDashboard_Click;
+        
+        var exitItem = new MenuItem { Header = "Exit ActDefend" };
+        exitItem.Click += TrayMenuExit_Click;
+        
+        menu.Items.Add(openItem);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(exitItem);
+
+        menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Tray icon double-click — same as Open Dashboard.
+    /// </summary>
+    private void TaskbarIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
+    {
+        TrayMenuOpenDashboard_Click(sender, e);
+    }
+
+    /// <summary>
+    /// Tray menu "Exit ActDefend" — confirms, then performs a graceful full shutdown.
+    /// </summary>
+    private void TrayMenuExit_Click(object sender, RoutedEventArgs e)
+    {
+        var result = MessageBox.Show(
+            "Are you sure you want to exit ActDefend?\n\nMonitoring will stop and the application will close completely.",
+            "Exit ActDefend",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes) return;
+
+        // Signal the .NET Generic Host to stop (stops all IHostedServices including detection pipeline)
+        _isExiting = true;
+        
+        // Ensure tray icon is disposed so it doesn't linger after exit
+        TaskbarIcon?.Dispose();
+
+        _appLifetime.StopApplication();
+
+        // Also ask WPF to shut down so the UI message loop exits cleanly
+        Application.Current.Shutdown();
+    }
+
+    // ── Window lifetime ───────────────────────────────────────────────────────
+
     protected override void OnClosing(CancelEventArgs e)
     {
-        // Don't kill the monitoring kernel pipeline when clicking X. Send it down to the tray layer.
+        if (_isExiting)
+        {
+            // Full exit — allow the window to close normally
+            base.OnClosing(e);
+            return;
+        }
+
+        // Close-to-tray: cancel the close and hide the window instead
         e.Cancel = true;
         Hide();
-        
-        TaskbarIcon.ShowBalloonTip("ActDefend Running", "Monitoring running securely in the background.", BalloonIcon.Info);
-        
+
+        TaskbarIcon.ShowBalloonTip(
+            "ActDefend Running",
+            "Monitoring continues in the background. Right-click the tray icon to exit.",
+            BalloonIcon.Info);
+
         base.OnClosing(e);
     }
 
@@ -64,7 +153,7 @@ public partial class MainWindow : Window
     {
         _publisher.AlertRaised -= OnAlertRaised;
         TaskbarIcon.Dispose();
-        
+
         base.OnClosed(e);
     }
 }

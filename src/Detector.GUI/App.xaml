@@ -1,7 +1,7 @@
 <Application x:Class="ActDefend.GUI.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             ShutdownMode="OnMainWindowClose">
+             ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <!-- Phase 1: Minimal resource dictionary.
              Phase 6 will add full theme: colours, fonts, control styles. -->

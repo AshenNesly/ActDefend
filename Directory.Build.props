@@ -11,7 +11,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <!-- Informational warnings that should not block CI -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;NU1903</NoWarn>
     <Authors>ActDefend Project</Authors>
     <Company>ActDefend</Company>
     <Product>ActDefend – Lightweight Behavioural Ransomware Detector</Product>

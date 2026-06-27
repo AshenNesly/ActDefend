@@ -24,6 +24,7 @@ public sealed class DetectionOrchestrator
     private readonly IEntropyEngine      _entropy;
     private readonly IAlertPublisher     _publisher;
     private readonly IAlertRepository    _alerts;
+    private readonly ITrustedProcessRepository _trusted;
 
     public DetectionOrchestrator(
         ILogger<DetectionOrchestrator> logger,
@@ -31,7 +32,8 @@ public sealed class DetectionOrchestrator
         IScoringEngine     scorer,
         IEntropyEngine     entropy,
         IAlertPublisher    publisher,
-        IAlertRepository   alerts)
+        IAlertRepository   alerts,
+        ITrustedProcessRepository trusted)
     {
         _logger    = logger;
         _extractor = extractor;
@@ -39,6 +41,7 @@ public sealed class DetectionOrchestrator
         _entropy   = entropy;
         _publisher = publisher;
         _alerts    = alerts;
+        _trusted   = trusted;
     }
 
     /// <summary>
@@ -52,6 +55,11 @@ public sealed class DetectionOrchestrator
         foreach (var snapshot in snapshots)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (_trusted.IsTrusted(snapshot.ProcessId, snapshot.ProcessName, snapshot.ProcessPath))
+            {
+                continue;
+            }
 
             var result = _scorer.Score(snapshot);
 

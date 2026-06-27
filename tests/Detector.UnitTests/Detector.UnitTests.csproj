@@ -33,5 +33,6 @@
     <ProjectReference Include="..\..\src\Detector.Detection\Detector.Detection.csproj" />
     <ProjectReference Include="..\..\src\Detector.Entropy\Detector.Entropy.csproj" />
     <ProjectReference Include="..\..\src\Detector.Simulator\Detector.Simulator.csproj" />
+    <ProjectReference Include="..\..\src\Detector.Storage\Detector.Storage.csproj" />
   </ItemGroup>
 </Project>

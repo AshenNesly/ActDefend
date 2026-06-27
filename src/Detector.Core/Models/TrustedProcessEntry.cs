@@ -30,4 +30,7 @@ public sealed record TrustedProcessEntry
 
     /// <summary>True if this entry was added automatically from the default exclusion list.</summary>
     public bool IsDefault { get; init; }
+
+    /// <summary>The source of this entry, e.g. "DefaultConfig", "UserAdded", or "AlertAction".</summary>
+    public string Source { get; init; } = "UserAdded";
 }

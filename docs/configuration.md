@@ -125,8 +125,7 @@ The value that maps each feature to its full weight. Values above the threshold 
 ## Trusted Processes
 
 | Key | Default | Description |
-|---|---|---|
-| `TrustedProcesses.DefaultExclusions` | *(list)* | Process names (image names) excluded from scoring at startup. Entries are loaded into memory; additions at runtime are not persisted. |
+| `TrustedProcesses.DefaultExclusions` | *(list)* | Process names excluded from scoring at startup. Default entries are loaded alongside user-added entries persisted in the SQLite database. User additions survive restarts. |
 
 Default exclusions: `System`, `smss.exe`, `csrss.exe`, `wininit.exe`, `winlogon.exe`, `services.exe`, `lsass.exe`, `svchost.exe`, `MsMpEng.exe`, `SearchIndexer.exe`.
 

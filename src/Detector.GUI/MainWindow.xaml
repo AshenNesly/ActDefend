@@ -3,11 +3,22 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="ActDefend — Ransomware Early Warning"
-        Height="640" Width="940"
-        MinHeight="480" MinWidth="720"
+        Height="680" Width="980"
+        MinHeight="520" MinWidth="760"
         Background="{StaticResource PrimaryBrush}"
         Foreground="{StaticResource TextBrush}"
         WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <!-- Inverse boolean to visibility: true -> Collapsed, false -> Visible -->
+        <Style x:Key="ProtectedBadgeStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1a3a1a"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="6,2"/>
+        </Style>
+    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -16,11 +27,13 @@
             <RowDefinition Height="28"/>
         </Grid.RowDefinitions>
 
-        <!-- Tray icon — resolves from the embedded Images/shield.ico resource -->
+        <!-- Tray icon with right-click context menu -->
         <tb:TaskbarIcon x:Name="TaskbarIcon"
                         IconSource="/ActDefend.GUI;component/Images/shield.ico"
                         ToolTipText="ActDefend — Ransomware Monitor"
-                        TrayMouseDoubleClick="TaskbarIcon_TrayMouseDoubleClick" />
+                        TrayMouseDoubleClick="TaskbarIcon_TrayMouseDoubleClick"
+                        TrayRightMouseUp="TaskbarIcon_TrayRightMouseUp">
+        </tb:TaskbarIcon>
 
         <!-- Title bar -->
         <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" Padding="16,0">
@@ -91,68 +104,303 @@
                 </Border>
             </StackPanel>
 
-            <!-- Alert feed -->
-            <Border Grid.Column="1" CornerRadius="6" Background="{StaticResource SurfaceBrush}" Padding="16">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+            <!-- Main Content Tabs -->
+            <TabControl Grid.Column="1" Background="Transparent" BorderThickness="0">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabItem">
+                                    <Border Name="Border" Padding="12,6" Margin="0,0,4,0"
+                                            Background="{StaticResource SurfaceBrush}" CornerRadius="4,4,0,0">
+                                        <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center"
+                                                          HorizontalAlignment="Center" ContentSource="Header" Margin="10,2"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Border" Property="Background" Value="#333"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="False">
+                                            <Setter TargetName="Border" Property="Background" Value="{StaticResource SurfaceBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                    </Style>
+                </TabControl.Resources>
 
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                        <TextBlock Text="RECENT ALERTS" FontSize="11" FontWeight="Bold"
-                                   Foreground="#666" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding AlertCountText}" FontSize="11"
-                                   Foreground="#555" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                    </StackPanel>
+                <!-- ═══ Tab 1: Recent Alerts ═══ -->
+                <TabItem Header="RECENT ALERTS">
+                    <Border CornerRadius="0,4,4,4" Background="{StaticResource SurfaceBrush}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
 
-                    <ListView Grid.Row="1" ItemsSource="{Binding RecentAlerts}"
-                              Background="Transparent" BorderThickness="0"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="#1a1a2e" CornerRadius="4" Padding="10,8"
-                                        Margin="0,0,0,6"
-                                        BorderBrush="{Binding SeverityBrush}" BorderThickness="3,0,0,0">
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                                <TextBlock Text="ALERTS FEED" FontSize="11" FontWeight="Bold"
+                                           Foreground="#666" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding AlertCountText}" FontSize="11"
+                                           Foreground="#555" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <ListView Grid.Row="1" ItemsSource="{Binding RecentAlerts}"
+                                      Background="Transparent" BorderThickness="0"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#1a1a2e" CornerRadius="4" Padding="10,8"
+                                                Margin="0,0,0,6"
+                                                BorderBrush="{Binding SeverityBrush}" BorderThickness="3,0,0,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <Border Background="{Binding SeverityBrush}" CornerRadius="2"
+                                                                Padding="4,1" Margin="0,0,8,0">
+                                                            <TextBlock Text="{Binding SeverityLabel}" FontWeight="Bold"
+                                                                       Foreground="#111" FontSize="9"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding ProcessName}" FontWeight="Bold"
+                                                                   Foreground="{StaticResource AccentBrush}" FontSize="13"
+                                                                   Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding PidText}" Foreground="#555" FontSize="11"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Summary}" Foreground="{StaticResource TextBrush}"
+                                                               TextWrapping="Wrap" FontSize="12" Margin="0,0,0,8"/>
+
+                                                    <!-- Allow button: blue-green, clearly positive, with tooltip -->
+                                                    <Button Content="✓  Trust this process"
+                                                            Command="{Binding DataContext.AllowProcessFromAlertCommand, RelativeSource={RelativeSource AncestorType=TabControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            HorizontalAlignment="Left"
+                                                            Padding="10,4"
+                                                            Background="#0e4d3a"
+                                                            Foreground="#4ecca3"
+                                                            BorderBrush="#4ecca3"
+                                                            BorderThickness="1"
+                                                            FontSize="11"
+                                                            FontWeight="SemiBold"
+                                                            Cursor="Hand"
+                                                            ToolTip="Add this process to Trusted Processes — it will no longer be monitored by ActDefend"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding TimestampText}"
+                                                           Foreground="#666" FontSize="11"
+                                                           VerticalAlignment="Top" Margin="12,0,0,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Border>
+                </TabItem>
+
+                <!-- ═══ Tab 2: Trusted Processes / Allowlist ═══ -->
+                <TabItem Header="ALLOWLIST">
+                    <Border CornerRadius="0,4,4,4" Background="{StaticResource SurfaceBrush}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header -->
+                            <StackPanel Grid.Row="0" Margin="0,0,0,6">
+                                <TextBlock Text="TRUSTED PROCESSES / ALLOWLIST" FontSize="12" FontWeight="Bold"
+                                           Foreground="#aaa"/>
+                                <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#888" Margin="0,4,0,0"
+                                           Text="Trusted processes are completely ignored by the detection pipeline. Only add applications you fully trust. Default system exclusions are protected and cannot be removed."/>
+                            </StackPanel>
+
+                            <Separator Grid.Row="1" Background="#333" Margin="0,6,0,12"/>
+
+                            <!-- Add entry form -->
+                            <Border Grid.Row="2" Background="#1a1a2e" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="ADD TRUSTED PROCESS" FontSize="10" FontWeight="Bold"
+                                               Foreground="#666" Margin="0,0,0,8"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                <Border Background="{Binding SeverityBrush}" CornerRadius="2"
-                                                        Padding="4,1" Margin="0,0,8,0">
-                                                    <TextBlock Text="{Binding SeverityLabel}" FontWeight="Bold"
-                                                               Foreground="#111" FontSize="9"/>
-                                                </Border>
-                                                <TextBlock Text="{Binding ProcessName}" FontWeight="Bold"
-                                                           Foreground="{StaticResource AccentBrush}" FontSize="13"
-                                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding PidText}" Foreground="#555" FontSize="11"
-                                                           VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding Summary}" Foreground="{StaticResource TextBrush}"
-                                                       TextWrapping="Wrap" FontSize="12"/>
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{Binding TimestampText}"
-                                                   Foreground="#666" FontSize="11"
-                                                   VerticalAlignment="Top" Margin="12,0,0,0"/>
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding NewAllowlistProcessName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Padding="6,5" Margin="0,0,8,0"
+                                                 Background="#0d0d1a" Foreground="#eee" BorderBrush="#444"
+                                                 ToolTip="Process name (e.g. backup.exe)">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox">
+                                                    <Setter Property="Tag" Value="Process name (e.g. backup.exe)"/>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                        <Button Grid.Column="1"
+                                                Content="Add Process"
+                                                Command="{Binding AddAllowlistEntryCommand}"
+                                                Padding="14,6"
+                                                Background="#0e4d3a" Foreground="#4ecca3"
+                                                BorderBrush="#4ecca3" BorderThickness="1"
+                                                FontWeight="SemiBold" Cursor="Hand"/>
                                     </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Grid>
-            </Border>
+                                    <TextBlock Text="Process Name" FontSize="9" Foreground="#555" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Search/filter bar -->
+                            <Grid Grid.Row="3" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding AllowlistFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="6,5" Background="#1a1a2e" Foreground="#eee" BorderBrush="#333"
+                                         ToolTip="Filter by process name"/>
+                                <TextBlock Grid.Column="1" Text="🔍 Filter" Foreground="#666" FontSize="11"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </Grid>
+
+                            <!-- Allowlist items -->
+                            <Grid Grid.Row="4">
+                                <!-- Empty state message -->
+                                <TextBlock Text="{Binding AllowlistEmptyMessage}"
+                                           Foreground="#555" FontSize="12" FontStyle="Italic"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           TextWrapping="Wrap" TextAlignment="Center" Margin="24">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AllowlistIsEmpty}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <ListView ItemsSource="{Binding Allowlist}"
+                                          Background="Transparent" BorderThickness="0"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#1a1a2e" CornerRadius="4" Padding="10,8" Margin="0,0,0,5">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="160"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                        <ColumnDefinition Width="120"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Process name -->
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding ProcessName}"
+                                                               FontWeight="Bold"
+                                                               Foreground="{StaticResource AccentBrush}"
+                                                               FontSize="12" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding ProcessName}"/>
+
+                                                    <!-- Source badge -->
+                                                    <Border Grid.Column="1" CornerRadius="3" Padding="5,2"
+                                                            Margin="4,0" VerticalAlignment="Center"
+                                                            HorizontalAlignment="Left">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="#1a2a3a"/>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding Source}" FontSize="9"
+                                                                   Foreground="#7ab" FontWeight="Bold"/>
+                                                    </Border>
+
+                                                    <!-- Added date -->
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding TimestampText}"
+                                                               Foreground="#666" FontSize="10"
+                                                               VerticalAlignment="Center" Margin="4,0"/>
+
+                                                    <!-- Reason/notes -->
+                                                    <TextBlock Grid.Column="3"
+                                                               Text="{Binding Reason}"
+                                                               Foreground="#888" FontSize="10"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding Reason}"
+                                                               Margin="4,0,8,0"/>
+
+                                                    <!-- Action: Remove button for user-added, PROTECTED badge for defaults -->
+                                                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <!-- PROTECTED badge for default entries -->
+                                                        <Border CornerRadius="3" Padding="6,2" Background="#1a3a1a"
+                                                                ToolTip="This is a built-in system exclusion and cannot be removed.">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding CanRemove}" Value="False">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="PROTECTED" FontSize="9" FontWeight="Bold" Foreground="#4a8a4a"/>
+                                                        </Border>
+
+                                                        <!-- Remove button for user-added entries -->
+                                                        <Button Content="Remove"
+                                                                Command="{Binding DataContext.RemoveAllowlistEntryCommand, RelativeSource={RelativeSource AncestorType=TabControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Visibility="{Binding CanRemove, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                VerticalAlignment="Center"
+                                                                Padding="10,4"
+                                                                Background="#2d0e0e" Foreground="#e05555"
+                                                                BorderBrush="#e05555" BorderThickness="1"
+                                                                FontSize="11" FontWeight="SemiBold"
+                                                                Cursor="Hand"
+                                                                ToolTip="Remove this process from the trusted list — it will be monitored again"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </TabItem>
+            </TabControl>
         </Grid>
 
         <!-- Status bar -->

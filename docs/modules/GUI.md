@@ -50,18 +50,35 @@ The left sidebar shows six live status cards, all bound to `MainWindowViewModel`
 | EVENTS DROPPED | `EventsDropped` / `DroppedBrush` | Amber when non-zero (backpressure signal) |
 | UPTIME | `UptimeText` | Derived from `IMonitoringStatus.StartedAt` |
 
-## Alert Feed
+## Dashboard Tabs (Alerts & Allowlist)
 
+The main content area uses a `TabControl` to split focus:
+
+### Recent Alerts
 Each alert row is wrapped in `AlertRowViewModel` which exposes:
 - `SeverityBrush` — colour-coded left border (red/amber/grey)
 - `SeverityLabel` — pill badge (CRITICAL / HIGH / MEDIUM / LOW)
 - `ProcessName`, `PidText`, `Summary`, `TimestampText`
+- **Trust this process** button — styled in positive green/teal. Prompts with a clear confirmation explaining that trusted processes are ignored by detection.
 
 Alerts are prepended (newest first) and the list is capped at 100 entries.
 
-## Close-to-Tray Behaviour
+### Allowlist (Trusted Processes)
+A fully-featured allowlist manager:
+- Header indicating warnings and implications of adding processes.
+- An add form with Process Name and custom Notes/Reason input fields.
+- Real-time search/filter bar to match process names.
+- Complete tabular/list grid columns including: Process Name, Source (DefaultConfig, AlertAction, UserAdded), Date Added, Reason/Notes.
+- Protected status marker badge for default system configuration entries.
+- Action button "Remove" exclusively for user-added entries. Prompts with a confirmation dialog before deletion.
 
-`OnClosing` is cancelled (`e.Cancel = true`) and the window is hidden. A balloon tip confirms monitoring continues in background. Double-clicking the tray icon restores the window.
+## Close-to-Tray and Exit Behaviour
+
+- **Closing the Window**: Clicking the 'X' title bar button hides the window to the tray and keeps background monitoring active.
+- **Tray Icon Context Menu**: Right-clicking the tray icon brings up a menu with:
+  - **Open Dashboard**: Restores the window to view.
+  - **Exit ActDefend**: Asks for confirmation, stops background monitoring gracefully by signaling `IHostApplicationLifetime.StopApplication()`, disposes the tray icon, and fully shuts down the process.
+- **App Startup Configuration**: WPF `ShutdownMode` is set to `OnExplicitShutdown` to prevent application termination when the main window is hidden.
 
 ## Live Counter Refresh (Phase 8 Fix)
 

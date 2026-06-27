@@ -58,9 +58,23 @@ When alerts are read back from SQLite (`GetAllAsync`, `GetRecentAsync`), the `St
 
 **Implements:** `ITrustedProcessRepository`
 
-**Storage:** **In-memory only.** Entries are loaded from `appsettings.json:ActDefend:TrustedProcesses:DefaultExclusions` at startup and held in a `List<TrustedProcessEntry>` protected by a `Lock`.
+**Storage:** **SQLite + Configuration.** The repository loads system defaults from `appsettings.json:ActDefend:TrustedProcesses:DefaultExclusions` and merges them with user-added entries stored in the `TrustedProcesses` SQLite table.
 
-> **Important:** Runtime additions (via `AddAsync`) and removals (via `RemoveAsync`) are held in memory only and are **lost on application restart**. There is currently no SQLite persistence for trusted-process entries. Users must re-add custom exclusions after restart, or add them to `appsettings.json` so they are loaded again on next start.
+### Schema (TrustedProcesses)
+
+```sql
+CREATE TABLE IF NOT EXISTS TrustedProcesses (
+    EntryId TEXT PRIMARY KEY,
+    ProcessName TEXT NOT NULL,
+    ProcessPath TEXT,
+    CreatedAt TEXT NOT NULL,
+    Reason TEXT NOT NULL,
+    Source TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS IDX_TrustedProcesses_Name ON TrustedProcesses(ProcessName);
+```
+
+Additions and removals made at runtime are persisted to the database and survive application restarts. Default exclusions are read-only; attempts to remove them are prevented by both the repository (`RemoveAsync` ignores requests for default items) and the GUI (which hides the Remove action and shows a PROTECTED badge).
 
 ### IsTrusted Matching
 
@@ -68,7 +82,7 @@ When alerts are read back from SQLite (`GetAllAsync`, `GetRecentAsync`), the `St
 
 ### Note on Orchestrator Integration
 
-`IsTrusted` is exposed via the interface but is **not currently called by `DetectionOrchestrator`**. The allow-list check has not yet been wired into the scoring hot path — it is a data repository ready for that integration. Trusted processes are excluded at the ETW noise-filter level only (via `DefaultExclusions` loaded at startup), not dynamically checked per snapshot.
+`IsTrusted` is exposed via the interface and is **called by `DetectionOrchestrator.TickAsync()`**. Trusted processes are skipped entirely during scoring, reducing false positives for known benign applications. Default exclusions additionally act as an ETW noise filter (via `DefaultExclusions` loaded at startup).
 
 ---
 

@@ -22,7 +22,8 @@ All planned pipeline phases are complete. The system is fully operational end-to
 | **Phase 8c** | Simulator Rerun Fix | ✅ Complete | `SimulatorRunner.ResetWorkspace()` clears workspace before every run, preventing `IOException` on repeated ransomware runs. Logic extracted to static `SimulatorRunner` class for testability. 39 tests passing. |
 | **Phase 8d** | Runtime Detection Fix | ✅ Complete | Fixed 4 runtime bugs: Stage 2 always failed for simulator (write-then-rename blind spot); rename candidates not tracked; live counters displayed 0; dropped events not propagated to UI. 41 tests passing. |
 | **Phase 8e** | False Positive Reduction | ✅ Complete | Added `PreExistingModifyRate` feature (25-pt weight) to distinguish pre-existing file modification from new-file creation. `WriteReadRatio` set to 0.0 when reads = 0 (penalises pure downloaders less). Stage 2 skips known high-entropy-but-benign extensions (`.dll`, `.exe`, `.zip`, `.png`, etc.). 42 tests passing. |
-
+| **Phase 9** | Persistent Allowlist | ✅ Complete | Extended `TrustedProcessRepository` to persist user-added exceptions to the SQLite `TrustedProcesses` table. Dashboard now includes an Allowlist tab. |
+| **Phase 9b** | Allowlist UX & Tray Exit | ✅ Complete | Fixed allowlist removal flow (confirmation dialog + safe reload). Redesigned Allowlist tab with header, warning, search filter, reason field, Protected badge, empty state. Improved "Trust" button with green/teal style and tooltip. Added right-click tray context menu: Open Dashboard / Exit ActDefend. Graceful host shutdown via `IHostApplicationLifetime.StopApplication()`. Fixed `ShutdownMode` to `OnExplicitShutdown`. 50 tests passing. |
 ---
 
 ## Known Remaining Gaps
@@ -31,7 +32,6 @@ All planned pipeline phases are complete. The system is fully operational end-to
 |---|---|---|
 | `EventQueueCapacity` config | The `Collector.EventQueueCapacity` option is defined in config but the channel is created with a hardcoded capacity of 8 192. The config value is not wired to the channel. | Low — hardcoded value is 2× the config default; no functional impact unless tuning is needed. |
 | `EventQueueTimeoutMs` config | Defined in config but unused. The channel uses `DropWrite` mode (immediate drop, no timeout). | Low — no functional impact. |
-| Trusted-process persistence | `TrustedProcessRepository` loads defaults from config into memory. Runtime additions are not persisted to SQLite and are lost on restart. | Medium — users must re-add exclusions after restart. |
 | Stage 1 threshold calibration | Default thresholds calibrated against simulator workloads; heavy benign writes (disk backups, large IDE builds) may still cross the threshold under sustained load. | Medium |
 | ETW rename destination | Rename events carry only the source path; the new filename is unavailable via `FileIOInfoTraceData`. Stage 2 works around this via extension probing. | Low (mitigated) |
 | ProcessPath resolution | Full executable path is `null` for all processes. ETW FileIO events do not carry it, and an explicit `Process.MainModule.FileName` lookup per event was excluded for performance. | Low |
@@ -44,5 +44,4 @@ All planned pipeline phases are complete. The system is fully operational end-to
 1. **Calibration run** — run the simulator at various speeds and measure true/false positive rates against the current thresholds to verify the detection chain works end-to-end at runtime.
 2. **Benign workload validation** — run IDE builds, disk backups, and large unzips while monitoring to confirm Stage 1 does not false-alert on known-safe processes.
 3. **Evaluation report** — produce initial detection-latency and accuracy measurements for the academic evaluation section.
-4. **Trusted-process SQLite persistence** — wire `TrustedProcessRepository` to the SQLite database so user-added exclusions survive restarts.
-5. **Wired collector config** — plumb `Collector.EventQueueCapacity` into `EtwEventCollector` so the config option takes effect.
+4. **Wired collector config** — plumb `Collector.EventQueueCapacity` into `EtwEventCollector` so the config option takes effect.

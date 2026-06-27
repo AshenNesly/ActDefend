@@ -4,6 +4,7 @@ using ActDefend.Entropy;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using System.IO;
 using Xunit;
 
 namespace ActDefend.UnitTests.Entropy;

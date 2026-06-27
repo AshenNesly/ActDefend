@@ -58,15 +58,23 @@ public sealed class WpfHostedService : IHostedService
 
     private void RunWpf()
     {
-        _wpfApp = new App(_serviceProvider);
-        _wpfApp.InitializeComponent();
-
-        _wpfApp.Exit += (_, _) =>
+        try
         {
-            _logger.LogInformation("WPF application exited — stopping host.");
-            _lifetime.StopApplication();
-        };
+            _wpfApp = new App(_serviceProvider);
+            _wpfApp.InitializeComponent();
 
-        _wpfApp.Run();
+            _wpfApp.Exit += (_, _) =>
+            {
+                _logger.LogInformation("WPF application exited — stopping host.");
+                _lifetime.StopApplication();
+            };
+
+            _wpfApp.Run();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(ex, "WPF STA thread crashed: {Message}", ex.Message);
+            _lifetime.StopApplication();
+        }
     }
 }

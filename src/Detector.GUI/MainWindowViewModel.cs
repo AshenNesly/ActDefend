@@ -28,16 +28,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private static readonly SolidColorBrush BrushCritical = new(Color.FromRgb(0xFF, 0x44, 0x44)); // bright red
     private static readonly SolidColorBrush BrushNeutral  = new(Color.FromRgb(0x88, 0x88, 0x88)); // grey
 
+    public SettingsViewModel Settings { get; }
+
     public MainWindowViewModel(
         IMonitoringStatus         status,
         IAlertPublisher           publisher,
         IAlertRepository          alerts,
-        ITrustedProcessRepository trustedProcesses)
+        ITrustedProcessRepository trustedProcesses,
+        SettingsViewModel         settings)
     {
         _status           = status;
         _publisher        = publisher;
         _alerts           = alerts;
         _trustedProcesses = trustedProcesses;
+        Settings          = settings;
 
         _status.StatusChanged  += (_, _) => Application.Current.Dispatcher.Invoke(RefreshStatus);
         _publisher.AlertRaised += (_, alert) => Application.Current.Dispatcher.Invoke(() => SafeAddAlert(alert));

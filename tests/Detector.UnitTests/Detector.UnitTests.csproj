@@ -10,6 +10,7 @@
     <AssemblyName>ActDefend.UnitTests</AssemblyName>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,5 +35,6 @@
     <ProjectReference Include="..\..\src\Detector.Entropy\Detector.Entropy.csproj" />
     <ProjectReference Include="..\..\src\Detector.Simulator\Detector.Simulator.csproj" />
     <ProjectReference Include="..\..\src\Detector.Storage\Detector.Storage.csproj" />
+    <ProjectReference Include="..\..\src\Detector.GUI\Detector.GUI.csproj" />
   </ItemGroup>
 </Project>

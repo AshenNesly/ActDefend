@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         IAlertPublisher           publisher,
         IAlertRepository          alerts,
         ITrustedProcessRepository trustedProcesses,
+        SettingsViewModel         settings,
         IHostApplicationLifetime  appLifetime)
     {
         InitializeComponent();
@@ -32,10 +33,16 @@ public partial class MainWindow : Window
         _appLifetime = appLifetime;
 
         // Hook MVVM Context exclusively
-        DataContext = new MainWindowViewModel(status, publisher, alerts, trustedProcesses);
+        DataContext = new MainWindowViewModel(status, publisher, alerts, trustedProcesses, settings);
 
         // Trap publisher alerts and route them to tray balloon notifications
         _publisher.AlertRaised += OnAlertRaised;
+        
+        Serilog.Log.Information("MainWindow constructed successfully.");
+        
+        this.Loaded += (s, e) => Serilog.Log.Information("MainWindow Loaded event fired. Window is now visible.");
+        this.Closing += (s, e) => Serilog.Log.Information("MainWindow Closing event fired.");
+        this.Closed += (s, e) => Serilog.Log.Information("MainWindow Closed event fired.");
     }
 
     // ── Tray balloon notifications ────────────────────────────────────────────
@@ -152,8 +159,51 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _publisher.AlertRaised -= OnAlertRaised;
-        TaskbarIcon.Dispose();
+        TaskbarIcon?.Dispose();
 
         base.OnClosed(e);
+    }
+    
+    // ── Settings ──────────────────────────────────────────────────────────────
+
+    private void SettingsRestartButton_Click(object sender, RoutedEventArgs e)
+    {
+        var result = MessageBox.Show(
+            "Are you sure you want to restart ActDefend to apply new settings?\n\nMonitoring will be temporarily stopped.",
+            "Restart ActDefend",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes) return;
+
+        try 
+        {
+            var processPath = System.Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(processPath))
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = processPath,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                System.Diagnostics.Process.Start(psi);
+            }
+            else 
+            {
+                throw new Exception("Could not determine executable path.");
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not restart automatically. Please close and reopen ActDefend manually.\n\nError: {ex.Message}", "Restart Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Proceed with graceful exit
+        _isExiting = true;
+        TaskbarIcon?.Dispose();
+        _appLifetime.StopApplication();
+        Application.Current.Shutdown();
     }
 }

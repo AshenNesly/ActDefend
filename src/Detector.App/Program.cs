@@ -66,11 +66,15 @@ try
             services.AddSingleton<MonitoringStatusService>();
             services.AddSingleton<IMonitoringStatus>(
                 sp => sp.GetRequiredService<MonitoringStatusService>());
+                
+            // Configuration Manager
+            services.AddSingleton<IConfigurationManager, ConfigurationManagerService>();
 
             // Pipeline background service.
             services.AddHostedService<PipelineHostService>();
 
             // GUI hosted service.
+            services.AddSingleton<ActDefend.GUI.SettingsViewModel>();
             services.AddHostedService<ActDefend.GUI.WpfHostedService>();
         })
         .Build();

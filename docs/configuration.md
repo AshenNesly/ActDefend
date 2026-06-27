@@ -53,12 +53,45 @@ Configuration is validated with `DataAnnotations` on startup (`.ValidateDataAnno
 
 | Key | Default | Range | Description |
 |---|---|---|---|
-| `Collector.EventQueueCapacity` | `4096` | 1 024–1 000 000 | **Defined but not currently wired to the bounded channel.** The channel is created with a hardcoded capacity of 8 192. This option is reserved for a future refactor that plumbs configuration into `EtwEventCollector`. |
-| `Collector.EventQueueTimeoutMs` | `5` | 1–1 000 | **Defined but not currently used.** The channel uses `DropWrite` mode (events are dropped immediately when full — no timeout wait). This option is reserved for a future alternative backpressure strategy. |
-
-> **Important:** The active channel capacity is hardcoded to **8 192** events. If the channel is full, events are silently dropped and the `TotalEventsDropped` counter in the UI increments.
+| `Collector.EventQueueCapacity` | `4096` | 1 024–1 000 000 | Bounded channel capacity between the ETW callback and the downstream processing pipeline. Fully wired to `EtwEventCollector` — changing this value and restarting takes effect immediately. Decrease for low-resource environments; increase if `TotalEventsDropped` is climbing. |
+| `Collector.EventQueueTimeoutMs` | `5` | 1–1 000 | Reserved for a future alternative backpressure strategy. The channel currently uses `DropWrite` mode (events are dropped immediately when full). |
 
 ---
+
+## Dashboard Tuning (Settings / Tuning Tab)
+
+The **SETTINGS / TUNING** dashboard tab provides a safe, GUI-driven interface for adjusting the key parameters below without directly editing `appsettings.json`.
+
+### Preset Profiles
+
+Four preset profiles are provided. Selecting a profile populates all exposed fields with a tested, safe set of values:
+
+| Profile | Sensitivity | Resources | Notes |
+|---|---|---|---|
+| **Balanced** | Medium | Medium | Default recommended. Good balance between accuracy and false positives. |
+| **Sensitive** | High | Medium-High | Detects earlier. May increase false positives. |
+| **Low Resource** | Low-Medium | Low | Reduces CPU/memory pressure. May detect slightly slower. |
+| **Conservative** | Low | Medium | Reduces false positives. May miss very slow ransomware-like behaviour. |
+
+### Safe Tuning Ranges (Dashboard Validation)
+
+The dashboard enforces the following safe ranges. Values outside these bounds will show a validation error and **cannot be saved**:
+
+| Parameter | Safe Min | Safe Max |
+|---|---|---|
+| `Stage1.SuspicionThreshold` | 40 | 90 |
+| `Stage2.EntropyThreshold` | 6.5 | 8.0 |
+| `Stage2.ConfirmationMinFiles` | 1 | 10 |
+| `Stage2.MaxFilesToSample` | 1 | 50 |
+| `Features.PrimaryWindowSeconds` | 2 | 15 |
+| `Features.ContextWindowSeconds` | 5 | 60 |
+| `Features.EmitIntervalSeconds` | 1 | 10 |
+| `Features.InactivityExpirySeconds` | 30 | 600 |
+| `Collector.EventQueueCapacity` | 1 024 | 100 000 |
+| Each Stage 1 Weight | 0 | 50 |
+| Total Stage 1 Weights | — | 100 |
+
+> **Restart required.** Settings saved through the dashboard are written to `appsettings.json`. A restart of ActDefend is required for the changes to take effect.
 
 ## Features (Sliding Windows)
 

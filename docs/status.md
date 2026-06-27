@@ -25,13 +25,13 @@ All planned pipeline phases are complete. The system is fully operational end-to
 | **Phase 9** | Persistent Allowlist | ✅ Complete | Extended `TrustedProcessRepository` to persist user-added exceptions to the SQLite `TrustedProcesses` table. Dashboard now includes an Allowlist tab. |
 | **Phase 9b** | Allowlist UX & Tray Exit | ✅ Complete | Fixed allowlist removal flow (confirmation dialog + safe reload). Redesigned Allowlist tab with header, warning, search filter, reason field, Protected badge, empty state. Improved "Trust" button with green/teal style and tooltip. Added right-click tray context menu: Open Dashboard / Exit ActDefend. Graceful host shutdown via `IHostApplicationLifetime.StopApplication()`. Fixed `ShutdownMode` to `OnExplicitShutdown`. 50 tests passing. |
 | **Phase 9c** | Alert Evidence | ✅ Complete | Extended `DetectionAlert` with richer evidence (SuspicionScore, Thresholds, Latency, HighEntropyFileCount, JSON samples). Safely migrated SQLite schema with fallback read-backs. Exposed evidence summary on Recent Alerts UI. 50 tests passing. |
+| **Phase 9d** | Settings / Tuning | ✅ Complete | Added **SETTINGS / TUNING** tab to dashboard. Preset profiles (Balanced, Sensitive, Low Resource, Conservative) via `ConfigurationProfileHelper`. `SettingsViewModel` exposes all key parameters with strict validation. Settings persisted to `appsettings.json` via `ConfigurationManagerService`. `EtwEventCollector.EventQueueCapacity` now wired to config (was hardcoded). All 66 tests passing. |
 ---
 
 ## Known Remaining Gaps
 
 | Area | Gap | Risk |
 |---|---|---|
-| `EventQueueCapacity` config | The `Collector.EventQueueCapacity` option is defined in config but the channel is created with a hardcoded capacity of 8 192. The config value is not wired to the channel. | Low — hardcoded value is 2× the config default; no functional impact unless tuning is needed. |
 | `EventQueueTimeoutMs` config | Defined in config but unused. The channel uses `DropWrite` mode (immediate drop, no timeout). | Low — no functional impact. |
 | Stage 1 threshold calibration | Default thresholds calibrated against simulator workloads; heavy benign writes (disk backups, large IDE builds) may still cross the threshold under sustained load. | Medium |
 | ETW rename destination | Rename events carry only the source path; the new filename is unavailable via `FileIOInfoTraceData`. Stage 2 works around this via extension probing. | Low (mitigated) |
@@ -45,4 +45,3 @@ All planned pipeline phases are complete. The system is fully operational end-to
 1. **Calibration run** — run the simulator at various speeds and measure true/false positive rates against the current thresholds to verify the detection chain works end-to-end at runtime.
 2. **Benign workload validation** — run IDE builds, disk backups, and large unzips while monitoring to confirm Stage 1 does not false-alert on known-safe processes.
 3. **Evaluation report** — produce initial detection-latency and accuracy measurements for the academic evaluation section.
-4. **Wired collector config** — plumb `Collector.EventQueueCapacity` into `EtwEventCollector` so the config option takes effect.

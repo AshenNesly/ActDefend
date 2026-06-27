@@ -4,6 +4,8 @@ using ActDefend.Core.Interfaces;
 using ActDefend.Core.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using ActDefend.Core.Configuration;
 using Xunit;
 
 namespace ActDefend.IntegrationTests;
@@ -27,7 +29,8 @@ public sealed class PipelinePlaceholderTests
 
         // Setup
         var logger = NullLogger<EtwEventCollector>.Instance;
-        using var collector = new EtwEventCollector(logger);
+        var options = Microsoft.Extensions.Options.Options.Create(new ActDefendOptions());
+        using var collector = new EtwEventCollector(logger, options);
         
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await collector.StartAsync(cts.Token);

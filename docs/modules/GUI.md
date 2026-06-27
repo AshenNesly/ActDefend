@@ -50,7 +50,7 @@ The left sidebar shows six live status cards, all bound to `MainWindowViewModel`
 | EVENTS DROPPED | `EventsDropped` / `DroppedBrush` | Amber when non-zero (backpressure signal) |
 | UPTIME | `UptimeText` | Derived from `IMonitoringStatus.StartedAt` |
 
-## Dashboard Tabs (Alerts & Allowlist)
+## Dashboard Tabs (Alerts, Allowlist & Settings)
 
 The main content area uses a `TabControl` to split focus:
 
@@ -71,6 +71,23 @@ A fully-featured allowlist manager:
 - Complete tabular/list grid columns including: Process Name, Source (DefaultConfig, AlertAction, UserAdded), Date Added, Reason/Notes.
 - Protected status marker badge for default system configuration entries.
 - Action button "Remove" exclusively for user-added entries. Prompts with a confirmation dialog before deletion.
+
+### Settings / Tuning
+A safe, controlled configuration management panel:
+- **Preset Profile Buttons** — Balanced, Sensitive, Low Resource, Conservative. Each profile button populates all exposed form fields with a tested, validated set of values appropriate for that use case.
+- **Profile Description** — Short description of the currently selected preset shown below the profile buttons.
+- **Advanced Settings Grid** (two-column layout):
+  - **Stage 1 Settings**: Suspicion Threshold, all six feature weights.
+  - **Feature Windows**: Primary Window, Context Window, Emit Interval, Inactivity Expiry.
+  - **Stage 2 Settings**: Entropy Threshold, Max Files To Sample, Min Confirm Files, Cooldown.
+  - **Collector Settings**: Event Queue Capacity.
+- **Footer Action Area**:
+  - **Validation Error** — shown in red if any field violates the safe tuning ranges.
+  - **Restart Required notice** — shown in green after a successful save.
+  - **Reset to Defaults** button — resets all fields to Balanced profile values, with confirmation.
+  - **Save Settings** button — validates, writes to `appsettings.json`, and notifies the user that a restart is required.
+
+All settings fields are bound to `SettingsViewModel` which is a singleton injected into `MainWindowViewModel.Settings`.
 
 ## Close-to-Tray and Exit Behaviour
 

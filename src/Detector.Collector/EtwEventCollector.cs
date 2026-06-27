@@ -8,6 +8,8 @@ using Microsoft.Diagnostics.Tracing.Parsers;
 using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
 using Microsoft.Diagnostics.Tracing.Session;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using ActDefend.Core.Configuration;
 
 namespace ActDefend.Collector;
 
@@ -35,10 +37,12 @@ public sealed class EtwEventCollector : IEventCollector, IDisposable
     // In a full implementation, we would subscribe to Kernel Process events to maintain this natively,
     // but a sliding/lazy cache is lightweight enough for Phase 2.
     private readonly ConcurrentDictionary<int, string> _processNameCache = new();
+    private readonly int _eventQueueCapacity;
 
-    public EtwEventCollector(ILogger<EtwEventCollector> logger)
+    public EtwEventCollector(ILogger<EtwEventCollector> logger, IOptions<ActDefendOptions> options)
     {
         _logger = logger;
+        _eventQueueCapacity = options.Value.Collector.EventQueueCapacity;
     }
 
     /// <inheritdoc />
@@ -56,7 +60,7 @@ public sealed class EtwEventCollector : IEventCollector, IDisposable
         _logger.LogInformation("Starting ETW Event Collector initialization...");
 
         _channel = Channel.CreateBounded<FileSystemEvent>(
-            new BoundedChannelOptions(8192)
+            new BoundedChannelOptions(_eventQueueCapacity)
             {
                 FullMode = BoundedChannelFullMode.DropWrite,
                 SingleReader = true,

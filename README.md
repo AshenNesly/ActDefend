@@ -95,4 +95,10 @@ ActDefend.slnx
         ├── Simulator.md           — Safe ransomware simulator
         ├── Logging.md             — Serilog logging setup
         └── EndToEndValidation.md  — Integration test approach
+## Download
+
+The latest Windows installer is available from the Releases page.
+
+Download:
+ActDefend_Setup.exe
 ```

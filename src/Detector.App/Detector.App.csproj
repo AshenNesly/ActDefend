@@ -11,6 +11,8 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>ActDefend.App</RootNamespace>
     <AssemblyName>ActDefend.App</AssemblyName>
+    <!-- Embed the application icon -->
+    <ApplicationIcon>..\Detector.GUI\Images\shield.ico</ApplicationIcon>
     <!-- Embed the manifest that requests elevation via UAC -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Single-file publish friendly -->
